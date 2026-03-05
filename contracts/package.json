@@ -1,0 +1,43 @@
+{
+  "name": "nexusai-contracts",
+  "version": "1.0.0",
+  "description": "Smart contracts for NexusAI Protocol on Polkadot Hub EVM",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy": "hardhat run scripts/deploy-all.ts",
+    "deploy:local": "hardhat run scripts/deploy-all.ts --network localhost",
+    "deploy:testnet": "hardhat run scripts/deploy-testnet.ts --network polkadotHubTestnet",
+    "deploy:mainnet": "hardhat run scripts/deploy-mainnet.ts --network polkadotHub",
+    "deploy:hardhat-deploy": "hardhat deploy",
+    "deploy:hardhat-deploy:testnet": "hardhat deploy --network polkadotHubTestnet",
+    "deploy:hardhat-deploy:mainnet": "hardhat deploy --network polkadotHub",
+    "verify": "hardhat verify",
+    "verify-setup": "hardhat run scripts/verify-setup.ts",
+    "test-network": "hardhat run --network polkadotHubTestnet scripts/test-network.ts",
+    "test-network:mainnet": "hardhat run --network polkadotHub scripts/test-network.ts",
+    "node": "hardhat node",
+    "clean": "hardhat clean",
+    "size": "hardhat size-contracts"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@openzeppelin/contracts": "^5.6.1",
+    "@openzeppelin/contracts-upgradeable": "^5.0.0",
+    "@types/mocha": "^10.0.10",
+    "fast-check": "^4.6.0",
+    "hardhat": "^2.19.0",
+    "hardhat-deploy": "^0.11.45",
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "polkadot",
+    "xcm",
+    "defi",
+    "smart-contracts"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^17.3.1"
+  }
+}
