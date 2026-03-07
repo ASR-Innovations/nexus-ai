@@ -36,7 +36,4 @@ Thumbs.db
 # Deployment artifacts
 deployments/localhost/
 deployments/hardhat/
-
-deploy/
-script/
-test/
+.deployments.json
