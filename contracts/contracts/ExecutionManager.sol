@@ -2,13 +2,14 @@
 pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 
 /**
  * @title ExecutionManager
  * @dev Manages cross-chain execution of intent plans via XCM.
  *      Only IntentVault (set via setIntentVault) may call execute / completeExecution / failExecution.
  */
-contract ExecutionManager is ReentrancyGuard {
+contract ExecutionManager is ReentrancyGuard, Pausable {
 
     // ─────────────────────────────────────────────────────────────────────────
     // Constants
@@ -16,6 +17,12 @@ contract ExecutionManager is ReentrancyGuard {
 
     /// @dev XCM Precompile address on Polkadot Hub EVM
     address public constant XCM_PRECOMPILE = 0x0000000000000000000000000000000000000A00;
+
+    /// @dev Minimum XCM transfer amount (prevents dust attacks)
+    uint256 public constant MIN_XCM_AMOUNT = 0.1 ether;
+
+    /// @dev Maximum XCM transfer amount (prevents fat-finger errors)
+    uint256 public constant MAX_XCM_AMOUNT = 1000 ether;
 
     // ─────────────────────────────────────────────────────────────────────────
     // State variables
@@ -74,8 +81,8 @@ contract ExecutionManager is ReentrancyGuard {
     // ─────────────────────────────────────────────────────────────────────────
 
     event IntentVaultSet(address indexed intentVault);
-    event ExecutionStarted(uint256 indexed intentId, uint256 totalSteps);
-    event StepExecuted(uint256 indexed intentId, uint256 stepIndex, uint32 paraId);
+    event ExecutionStarted(uint256 indexed intentId, uint256 indexed totalSteps);
+    event StepExecuted(uint256 indexed intentId, uint256 indexed stepIndex, uint32 indexed paraId);
     event XCMSent(uint256 indexed intentId, uint32 indexed paraId, bytes xcmMessage);
     event ExecutionDispatched(uint256 indexed intentId);
     event ExecutionCompleted(uint256 indexed intentId);
@@ -131,6 +138,22 @@ contract ExecutionManager is ReentrancyGuard {
         emit IntentVaultSet(_intentVault);
     }
 
+    /**
+     * @dev Pause the contract. Only callable by owner.
+     *      Blocks all critical state-changing functions.
+     */
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /**
+     * @dev Unpause the contract. Only callable by owner.
+     *      Restores normal operations.
+     */
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Core execution
     // ─────────────────────────────────────────────────────────────────────────
@@ -146,6 +169,7 @@ contract ExecutionManager is ReentrancyGuard {
         external
         payable
         onlyIntentVault
+        whenNotPaused
         nonReentrant
         returns (bool success)
     {
@@ -237,6 +261,11 @@ contract ExecutionManager is ReentrancyGuard {
         // Encode beneficiary as bytes32 (XCM-native format)
         bytes32 beneficiary = bytes32(uint256(uint160(step.targetContract)));
 
+        // Defense-in-depth: validate XCM parameters
+        require(beneficiary != bytes32(0), "Invalid beneficiary");
+        require(step.amount >= MIN_XCM_AMOUNT, "Amount below minimum");
+        require(step.amount <= MAX_XCM_AMOUNT, "Amount exceeds maximum");
+
         bytes memory xcmMessage = buildTransferXCM(
             step.destinationParaId,
             beneficiary,
@@ -273,6 +302,9 @@ contract ExecutionManager is ReentrancyGuard {
         bytes32 beneficiary,
         uint256 amount
     ) public pure returns (bytes memory xcmMessage) {
+        require(beneficiary != bytes32(0), "Invalid beneficiary");
+        require(amount >= MIN_XCM_AMOUNT, "Amount below minimum");
+        require(amount <= MAX_XCM_AMOUNT, "Amount exceeds maximum");
         require(
             paraId == 2034 || paraId == 2030 || paraId == 2004,
             "Unsupported parachain"

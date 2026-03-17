@@ -2,13 +2,14 @@
 pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 
 /**
  * @title AgentRegistry
  * @dev Manages agent registration, staking, reputation, and slashing for the NexusAI Protocol.
  *      Only IntentVault (set via setIntentVault) may call recordSuccess / recordFailure.
  */
-contract AgentRegistry is ReentrancyGuard {
+contract AgentRegistry is ReentrancyGuard, Pausable {
 
     // ─────────────────────────────────────────────────────────────────────────
     // Structs
@@ -35,6 +36,11 @@ contract AgentRegistry is ReentrancyGuard {
 
     address public owner;             // Contract administrator
     address public intentVault;       // The only address allowed to call recordSuccess/recordFailure
+    address public treasury;          // Address to receive slashed funds
+    
+    // Timelock mechanism for intentVault changes
+    address public proposedIntentVault;           // Proposed new IntentVault address
+    uint256 public intentVaultChangeTimestamp;    // Timestamp when change can be executed
 
     // ─────────────────────────────────────────────────────────────────────────
     // Constants
@@ -42,19 +48,26 @@ contract AgentRegistry is ReentrancyGuard {
 
     uint256 public constant MIN_STAKE          = 10 ether;
     uint256 public constant INITIAL_REPUTATION = 5000;    // 50% in basis points
+    uint256 public constant MAX_REPUTATION     = 10000;   // Maximum reputation score (100% in basis points)
     uint256 public constant SLASH_PERCENT      = 10;      // 10% of stake slashed on failure
+    uint256 public constant TIMELOCK_DURATION  = 2 days;  // Timelock period for intentVault changes
+    uint256 public constant MAX_TOP_AGENTS     = 100;     // Maximum agents to return from getTopAgents
+    uint256 public constant MAX_REGISTRY_SIZE_FOR_SORTING = 1000; // Maximum registry size for on-chain sorting
 
     // ─────────────────────────────────────────────────────────────────────────
     // Events
     // ─────────────────────────────────────────────────────────────────────────
 
-    event AgentRegistered(address indexed agent, uint256 stake, string metadataURI);
+    event AgentRegistered(address indexed agent, uint256 indexed stake, string metadataURI);
     event AgentDeactivated(address indexed agent);
-    event AgentSlashed(address indexed agent, uint256 slashAmount);
-    event ReputationUpdated(address indexed agent, uint256 newScore);
-    event StakeAdded(address indexed agent, uint256 amount);
-    event StakeWithdrawn(address indexed agent, uint256 amount);
+    event AgentSlashed(address indexed agent, uint256 indexed slashAmount);
+    event ReputationUpdated(address indexed agent, uint256 indexed newScore);
+    event StakeAdded(address indexed agent, uint256 indexed amount);
+    event StakeWithdrawn(address indexed agent, uint256 indexed amount);
     event IntentVaultSet(address indexed intentVault);
+    event IntentVaultProposed(address indexed proposedVault, uint256 executeAfter);
+    event TreasurySet(address indexed treasury);
+    event AgentStatsUpdated(address indexed agent, uint256 reputationScore, uint256 successCount, uint256 failCount, uint256 stakeAmount);
 
     // ─────────────────────────────────────────────────────────────────────────
     // Modifiers
@@ -88,13 +101,68 @@ contract AgentRegistry is ReentrancyGuard {
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * @dev Sets the IntentVault address that may call recordSuccess / recordFailure.
-     *      Must be called by the owner after IntentVault is deployed.
+     * @dev Sets the IntentVault address for initial setup only.
+     *      Can only be called once when intentVault is not yet set.
+     *      For subsequent changes, use proposeIntentVault() and executeIntentVaultChange().
      */
     function setIntentVault(address _intentVault) external onlyOwner {
+        require(intentVault == address(0), "IntentVault already set, use timelock");
         require(_intentVault != address(0), "Invalid IntentVault address");
         intentVault = _intentVault;
         emit IntentVaultSet(_intentVault);
+    }
+
+    /**
+     * @dev Proposes a new IntentVault address with a 2-day timelock.
+     *      Must be called by the owner before executeIntentVaultChange().
+     */
+    function proposeIntentVault(address _intentVault) external onlyOwner {
+        require(_intentVault != address(0), "Invalid IntentVault address");
+        proposedIntentVault = _intentVault;
+        intentVaultChangeTimestamp = block.timestamp + TIMELOCK_DURATION;
+        emit IntentVaultProposed(_intentVault, intentVaultChangeTimestamp);
+    }
+
+    /**
+     * @dev Executes the proposed IntentVault change after the timelock expires.
+     *      Must be called by the owner after the timelock period has passed.
+     */
+    function executeIntentVaultChange() external onlyOwner {
+        require(proposedIntentVault != address(0), "No proposed IntentVault");
+        require(block.timestamp >= intentVaultChangeTimestamp, "Timelock not expired");
+        
+        intentVault = proposedIntentVault;
+        emit IntentVaultSet(proposedIntentVault);
+        
+        // Reset proposal state
+        proposedIntentVault = address(0);
+        intentVaultChangeTimestamp = 0;
+    }
+
+    /**
+     * @dev Sets the treasury address to receive slashed funds.
+     *      Can be called by the owner at any time.
+     */
+    function setTreasury(address _treasury) external onlyOwner {
+        require(_treasury != address(0), "Invalid treasury address");
+        treasury = _treasury;
+        emit TreasurySet(_treasury);
+    }
+
+    /**
+     * @dev Pauses all critical state-changing functions in the contract.
+     *      Only callable by the owner. Used for emergency response.
+     */
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /**
+     * @dev Unpauses the contract, restoring normal operations.
+     *      Only callable by the owner.
+     */
+    function unpause() external onlyOwner {
+        _unpause();
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -104,7 +172,7 @@ contract AgentRegistry is ReentrancyGuard {
     /**
      * @dev Register as an agent with a stake and IPFS metadata URI.
      */
-    function registerAgent(string calldata metadataURI) external payable nonReentrant {
+    function registerAgent(string calldata metadataURI) external payable nonReentrant whenNotPaused {
         require(msg.value >= MIN_STAKE, "Insufficient stake amount");
         require(agents[msg.sender].registeredAt == 0, "Agent already registered");
         require(bytes(metadataURI).length > 0, "Metadata URI required");
@@ -147,9 +215,21 @@ contract AgentRegistry is ReentrancyGuard {
         // Reputation: newRep = oldRep + ((10000 - oldRep) * 100 / 10000)
         uint256 oldRep = a.reputationScore;
         uint256 increase = ((10000 - oldRep) * 100) / 10000;
-        a.reputationScore = oldRep + increase;
+        
+        // Fix for reputation overflow: ensure minimum increase of 1 when calculation results in 0
+        if (increase == 0 && oldRep < MAX_REPUTATION) {
+            increase = 1;
+        }
+        
+        // Cap reputation at MAX_REPUTATION
+        if (oldRep + increase > MAX_REPUTATION) {
+            a.reputationScore = MAX_REPUTATION;
+        } else {
+            a.reputationScore = oldRep + increase;
+        }
 
         emit ReputationUpdated(agent, a.reputationScore);
+        emit AgentStatsUpdated(agent, a.reputationScore, a.successCount, a.failCount, a.stakeAmount);
     }
 
     /**
@@ -170,6 +250,12 @@ contract AgentRegistry is ReentrancyGuard {
         uint256 slashAmount = (a.stakeAmount * SLASH_PERCENT) / 100;
         a.stakeAmount -= slashAmount;
 
+        // Transfer slashed funds to treasury if set
+        if (treasury != address(0)) {
+            (bool success, ) = treasury.call{value: slashAmount}("");
+            require(success, "Treasury transfer failed");
+        }
+
         // Reputation: newRep = oldRep * 85 / 100
         a.reputationScore = (a.reputationScore * 85) / 100;
 
@@ -181,6 +267,7 @@ contract AgentRegistry is ReentrancyGuard {
 
         emit AgentSlashed(agent, slashAmount);
         emit ReputationUpdated(agent, a.reputationScore);
+        emit AgentStatsUpdated(agent, a.reputationScore, a.successCount, a.failCount, a.stakeAmount);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -279,6 +366,13 @@ contract AgentRegistry is ReentrancyGuard {
      */
     function getTopAgents(uint256 n) external view returns (address[] memory addresses) {
         uint256 total = agentList.length;
+        
+        // DoS prevention: revert for large registries
+        require(total <= MAX_REGISTRY_SIZE_FOR_SORTING, "Use off-chain sorting for large registries");
+        
+        // Cap n at MAX_TOP_AGENTS
+        if (n > MAX_TOP_AGENTS) n = MAX_TOP_AGENTS;
+        
         if (n > total) n = total;
 
         address[] memory candidates = new address[](total);

@@ -1,0 +1,12 @@
+{
+  "network": "polkadotHubTestnet",
+  "chainId": 420420417,
+  "deployer": "0x17f2e150c5b6D3794B468907fD62bf92D8024AF2",
+  "contracts": {
+    "AgentRegistry": "0xa68cd54231225cB0d9b9bf2839e63B155C41BC4E",
+    "ExecutionManager": "0x8626C24250967A5cF6D55de6b0abEb70aa2d628d",
+    "IntentVault": "0x256BA31C7485918E1f21da6164C5E9a3300Cd50b"
+  },
+  "deployedAt": "2026-03-18T09:02:54.678Z",
+  "blockNumber": 6537182
+}

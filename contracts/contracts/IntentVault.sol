@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // External interfaces
@@ -11,6 +12,7 @@ interface IAgentRegistry {
     function isActiveAgent(address agent) external view returns (bool);
     function recordSuccess(address agent, uint256 amount) external;
     function recordFailure(address agent) external;
+    function getAgentReputation(address agent) external view returns (uint256);
 }
 
 interface IExecutionManager {
@@ -27,7 +29,7 @@ interface IExecutionManager {
  *  - IntentExecuted event carries `bool success` (always true when emitted)
  *  - completeIntent reports the full deposit amount to AgentRegistry for volume tracking
  */
-contract IntentVault is ReentrancyGuard {
+contract IntentVault is ReentrancyGuard, Pausable {
 
     // ─────────────────────────────────────────────────────────────────────────
     // State variables
@@ -46,6 +48,9 @@ contract IntentVault is ReentrancyGuard {
     uint256 public constant MIN_DEPOSIT       = 1 ether;
     uint256 public constant MAX_SLIPPAGE_BPS  = 1000; // 10%
     uint256 public constant PROTOCOL_FEE_BPS  = 30;   // 0.3%
+    uint256 public constant EXECUTION_BUFFER  = 5 minutes; // Buffer time for cross-chain execution
+    uint256 public constant MIN_REPUTATION_FOR_CLAIM = 3000; // 30% in basis points
+    uint256 public constant MAX_ACTIVE_INTENTS_PER_AGENT = 10; // Maximum concurrent active intents per agent
 
     // ─────────────────────────────────────────────────────────────────────────
     // Enums & Structs
@@ -86,23 +91,27 @@ contract IntentVault is ReentrancyGuard {
 
     mapping(uint256 => Intent) public intents;
     mapping(address => uint256[]) public userIntents;  // user → intent IDs
+    mapping(address => uint256) public agentActiveIntents; // agent → count of active intents
+    mapping(address => bool) public whitelistedProtocols; // approved protocol addresses
     uint256[] private allIntentIds;                    // for getPendingIntents enumeration
 
     // ─────────────────────────────────────────────────────────────────────────
     // Events
     // ─────────────────────────────────────────────────────────────────────────
 
-    event IntentCreated(uint256 indexed intentId, address indexed user, uint256 amount, bytes32 goalHash);
+    event IntentCreated(uint256 indexed intentId, address indexed user, uint256 indexed amount, bytes32 goalHash);
     event IntentAssigned(uint256 indexed intentId, address indexed agent);
-    event PlanSubmitted(uint256 indexed intentId, bytes32 executionPlanHash);
+    event PlanSubmitted(uint256 indexed intentId, bytes32 indexed executionPlanHash);
     event PlanApproved(uint256 indexed intentId);
-    event IntentExecuted(uint256 indexed intentId, bool success);
+    event IntentExecuted(uint256 indexed intentId, bool indexed success);
     event ExecutionDispatched(uint256 indexed intentId);
-    event ExecutionCompleted(uint256 indexed intentId, uint256 returnAmount);
+    event ExecutionCompleted(uint256 indexed intentId, uint256 indexed returnAmount);
     event ExecutionFailed(uint256 indexed intentId, string reason);
-    event FundsReturned(uint256 indexed intentId, address indexed user, uint256 amount);
+    event FundsReturned(uint256 indexed intentId, address indexed user, uint256 indexed amount);
     event IntentCancelled(uint256 indexed intentId, address indexed user);
     event IntentExpired(uint256 indexed intentId, address indexed user);
+    event ProtocolWhitelisted(address indexed protocol);
+    event ProtocolRemoved(address indexed protocol);
 
     // ─────────────────────────────────────────────────────────────────────────
     // Modifiers
@@ -155,6 +164,33 @@ contract IntentVault is ReentrancyGuard {
         executionManager = IExecutionManager(_executionManager);
     }
 
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+    /**
+     * @dev Adds a protocol to the whitelist of approved protocols.
+     * @param protocol Address of the protocol to whitelist
+     */
+    function addWhitelistedProtocol(address protocol) external onlyOwner {
+        require(protocol != address(0), "Invalid protocol address");
+        whitelistedProtocols[protocol] = true;
+        emit ProtocolWhitelisted(protocol);
+    }
+
+    /**
+     * @dev Removes a protocol from the whitelist.
+     * @param protocol Address of the protocol to remove
+     */
+    function removeWhitelistedProtocol(address protocol) external onlyOwner {
+        whitelistedProtocols[protocol] = false;
+        emit ProtocolRemoved(protocol);
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Intent creation
     // ─────────────────────────────────────────────────────────────────────────
@@ -176,10 +212,15 @@ contract IntentVault is ReentrancyGuard {
         uint256 minYieldBps,
         uint256 maxLockDuration,
         address[] calldata approvedProtocols
-    ) external payable returns (uint256 intentId) {
+    ) external payable whenNotPaused returns (uint256 intentId) {
         require(msg.value >= MIN_DEPOSIT,          "Deposit below minimum");
         require(maxSlippageBps <= MAX_SLIPPAGE_BPS, "Slippage too high");
         require(deadline > block.timestamp,         "Deadline in the past");
+
+        // Validate all approved protocols are whitelisted
+        for (uint256 i = 0; i < approvedProtocols.length; i++) {
+            require(whitelistedProtocols[approvedProtocols[i]], "Protocol not whitelisted");
+        }
 
         intentId = nextIntentId++;
 
@@ -212,15 +253,19 @@ contract IntentVault is ReentrancyGuard {
     /**
      * @dev Active agent claims an unassigned PENDING intent.
      */
-    function claimIntent(uint256 intentId) external intentExists(intentId) {
+    function claimIntent(uint256 intentId) external intentExists(intentId) whenNotPaused {
         Intent storage intent = intents[intentId];
 
         require(agentRegistry.isActiveAgent(msg.sender), "Agent not active");
+        uint256 reputation = agentRegistry.getAgentReputation(msg.sender);
+        require(reputation >= MIN_REPUTATION_FOR_CLAIM, "Reputation too low");
+        require(agentActiveIntents[msg.sender] < MAX_ACTIVE_INTENTS_PER_AGENT, "Too many active intents");
         require(intent.status == IntentStatus.PENDING,   "Intent not available");
         require(block.timestamp <= intent.deadline,      "Intent expired");
 
         intent.assignedAgent = msg.sender;
         intent.status        = IntentStatus.ASSIGNED;
+        agentActiveIntents[msg.sender]++;
 
         emit IntentAssigned(intentId, msg.sender);
     }
@@ -255,11 +300,12 @@ contract IntentVault is ReentrancyGuard {
         intentExists(intentId)
         onlyAssignedAgent(intentId)
         nonReentrant
+        whenNotPaused
     {
         Intent storage intent = intents[intentId];
 
         require(intent.status == IntentStatus.APPROVED, "Plan not approved");
-        require(block.timestamp <= intent.deadline,      "Intent expired");
+        require(block.timestamp + EXECUTION_BUFFER <= intent.deadline, "Insufficient time before deadline");
 
         // Protocol fee stays in the vault; execution amount goes to ExecutionManager
         uint256 protocolFee     = (intent.amount * PROTOCOL_FEE_BPS) / 10000;
@@ -318,6 +364,12 @@ contract IntentVault is ReentrancyGuard {
         );
 
         uint256 refundAmount = intent.amount;
+        
+        // Decrement active intents counter if intent was assigned
+        if (intent.assignedAgent != address(0)) {
+            agentActiveIntents[intent.assignedAgent]--;
+        }
+        
         intent.status = IntentStatus.CANCELLED;
 
         (bool ok, ) = intent.user.call{value: refundAmount}("");
@@ -350,6 +402,12 @@ contract IntentVault is ReentrancyGuard {
             "Invalid status for completion"
         );
 
+        // Slippage protection validation
+        uint256 protocolFee = (intent.amount * PROTOCOL_FEE_BPS) / 10000;
+        uint256 executionAmount = intent.amount - protocolFee;
+        uint256 minAcceptable = executionAmount - (executionAmount * intent.maxSlippageBps / 10000);
+        require(returnAmount >= minAcceptable, "Slippage exceeded");
+
         if (returnAmount > 0) {
             (bool ok, ) = intent.user.call{value: returnAmount}("");
             require(ok, "Return transfer failed");
@@ -357,6 +415,9 @@ contract IntentVault is ReentrancyGuard {
 
         // Record success — passes full deposit amount for volume tracking
         agentRegistry.recordSuccess(intent.assignedAgent, intent.amount);
+
+        // Decrement active intents counter
+        agentActiveIntents[intent.assignedAgent]--;
 
         intent.status = IntentStatus.COMPLETED;
 
@@ -388,6 +449,9 @@ contract IntentVault is ReentrancyGuard {
         require(ok, "Refund transfer failed");
 
         agentRegistry.recordFailure(intent.assignedAgent);
+
+        // Decrement active intents counter
+        agentActiveIntents[intent.assignedAgent]--;
 
         intent.status = IntentStatus.FAILED;
 
