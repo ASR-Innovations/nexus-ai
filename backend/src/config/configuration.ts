@@ -187,6 +187,18 @@ export default registerAs('app', () => ({
     },
   },
 
+  // Agent Bot Configuration
+  agentBot: {
+    enabled: envConfig.AGENT_BOT_ENABLED,
+    privateKey: envConfig.AGENT_BOT_PRIVATE_KEY,
+    stakeAmount: envConfig.AGENT_BOT_STAKE_AMOUNT,
+    maxActiveIntents: envConfig.AGENT_BOT_MAX_ACTIVE_INTENTS,
+    minReputation: envConfig.AGENT_BOT_MIN_REPUTATION,
+    autoExecute: envConfig.AGENT_BOT_AUTO_EXECUTE,
+    riskTolerance: envConfig.AGENT_BOT_RISK_TOLERANCE,
+    specialties: envConfig.AGENT_BOT_SPECIALTIES.split(',').map(s => s.trim()),
+  },
+
   // Development Configuration
   development: {
     debugEnabled: envConfig.DEBUG_ENABLED,

@@ -10,12 +10,14 @@ import { ChatModule } from './chat/chat.module';
 import { IntentModule } from './intent/intent.module';
 import { PortfolioModule } from './portfolio/portfolio.module';
 import { AgentsModule } from './agents/agents.module';
+import { AgentBotModule } from './agents/bot/agent-bot.module';
 // import { YieldsModule } from './yields/yields.module'; // Temporarily disabled due to compilation errors
 // import { StrategyModule } from './strategy/strategy.module'; // Temporarily disabled due to yields dependency
 import { ExecutionModule } from './execution/execution.module';
 import { IndexerModule } from './indexer/indexer.module';
 import { WebsocketModule } from './websocket/websocket.module';
 import { MemoryModule } from './memory/memory.module';
+import { SecurityModule } from './security/security.module';
 import { SharedModule } from './shared/shared.module';
 import { HealthModule } from './health/health.module';
 import { WalletThrottlerGuard } from './shared/guards/wallet-throttler.guard';
@@ -81,12 +83,14 @@ import { WalletThrottlerGuard } from './shared/guards/wallet-throttler.guard';
     IntentModule,
     PortfolioModule,
     AgentsModule,
+    AgentBotModule,
     // YieldsModule, // Temporarily disabled due to compilation errors
     // StrategyModule, // Temporarily disabled due to yields dependency
     ExecutionModule,
     IndexerModule,
     WebsocketModule,
     MemoryModule,
+    SecurityModule,
     HealthModule,
   ],
   providers: [

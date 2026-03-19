@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Param, Query, Logger } from '@nestjs/commo
 import { SecurityService } from '../shared/services/security.service';
 import { SecurityConfigService } from '../shared/services/security-config.service';
 import { SecurityMonitoringService } from '../shared/services/security-monitoring.service';
+import { RBACService, Role, Permission } from '../shared/services/rbac.service';
 
 @Controller('security')
 export class SecurityController {
@@ -11,6 +12,7 @@ export class SecurityController {
     private readonly securityService: SecurityService,
     private readonly securityConfig: SecurityConfigService,
     private readonly securityMonitoring: SecurityMonitoringService,
+    private readonly rbacService: RBACService,
   ) {}
 
   @Get('status')
@@ -227,6 +229,227 @@ export class SecurityController {
         error: (error as Error).message,
         timestamp: new Date().toISOString()
       };
+    }
+  }
+
+  // ==================== RBAC ENDPOINTS ====================
+
+  @Post('rbac/assign')
+  async assignRole(@Body() body: { address: string; role: Role; assignedBy: string }) {
+    try {
+      this.rbacService.assignRole(body.address, body.role, body.assignedBy);
+      return { success: true, message: 'Role assigned successfully' };
+    } catch (error) {
+      this.logger.error('Failed to assign role:', error);
+      throw error;
+    }
+  }
+
+  @Post('rbac/revoke')
+  async revokeRole(@Body() body: { address: string }) {
+    try {
+      this.rbacService.revokeRole(body.address);
+      return { success: true, message: 'Role revoked successfully' };
+    } catch (error) {
+      this.logger.error('Failed to revoke role:', error);
+      throw error;
+    }
+  }
+
+  @Get('rbac/user/:address')
+  async getUserRole(@Param('address') address: string) {
+    try {
+      const userRole = this.rbacService.getUserRole(address);
+      return userRole || { message: 'No role assigned' };
+    } catch (error) {
+      this.logger.error(`Failed to get user role for ${address}:`, error);
+      throw error;
+    }
+  }
+
+  @Post('rbac/check')
+  async checkPermission(@Body() body: { address: string; permission: Permission }) {
+    try {
+      const result = this.securityService.checkAccess(body.address, body.permission);
+      return result;
+    } catch (error) {
+      this.logger.error('Failed to check permission:', error);
+      throw error;
+    }
+  }
+
+  @Get('rbac/roles')
+  async getAllRoles() {
+    try {
+      return this.rbacService.getAllRoles();
+    } catch (error) {
+      this.logger.error('Failed to get all roles:', error);
+      throw error;
+    }
+  }
+
+  @Get('rbac/statistics')
+  async getRoleStatistics() {
+    try {
+      return this.rbacService.getRoleStatistics();
+    } catch (error) {
+      this.logger.error('Failed to get role statistics:', error);
+      throw error;
+    }
+  }
+
+  // ==================== ENCRYPTION ENDPOINTS ====================
+
+  @Post('encryption/encrypt')
+  async encryptData(@Body() body: { plaintext: string }) {
+    try {
+      const result = this.securityService.encryptData(body.plaintext);
+      return { success: true, result };
+    } catch (error) {
+      this.logger.error('Failed to encrypt data:', error);
+      throw error;
+    }
+  }
+
+  @Post('encryption/decrypt')
+  async decryptData(@Body() body: { encrypted: string; iv: string; authTag: string }) {
+    try {
+      const plaintext = this.securityService.decryptData(body);
+      return { success: true, plaintext };
+    } catch (error) {
+      this.logger.error('Failed to decrypt data:', error);
+      throw error;
+    }
+  }
+
+  @Post('encryption/hash')
+  async hashData(@Body() body: { data: string }) {
+    try {
+      const hash = this.securityService.hashData(body.data);
+      return { success: true, hash };
+    } catch (error) {
+      this.logger.error('Failed to hash data:', error);
+      throw error;
+    }
+  }
+
+  // ==================== HSM ENDPOINTS ====================
+
+  @Get('hsm/status')
+  async getHSMStatus() {
+    try {
+      return this.securityService.getHSMStatus();
+    } catch (error) {
+      this.logger.error('Failed to get HSM status:', error);
+      throw error;
+    }
+  }
+
+  @Post('hsm/sign')
+  async signWithHSM(@Body() body: { transactionHash: string }) {
+    try {
+      const result = await this.securityService.signTransactionWithHSM(body.transactionHash);
+      return { success: true, result };
+    } catch (error) {
+      this.logger.error('Failed to sign with HSM:', error);
+      throw error;
+    }
+  }
+
+  // ==================== ACTIVITY MONITORING ENDPOINTS ====================
+
+  @Get('activity/suspicious')
+  async getSuspiciousAddresses() {
+    try {
+      return this.securityService.getSuspiciousAddresses();
+    } catch (error) {
+      this.logger.error('Failed to get suspicious addresses:', error);
+      throw error;
+    }
+  }
+
+  @Get('activity/frozen')
+  async getFrozenAccounts() {
+    try {
+      return this.securityService.activityMonitor.listFrozenAccounts();
+    } catch (error) {
+      this.logger.error('Failed to get frozen accounts:', error);
+      throw error;
+    }
+  }
+
+  @Post('activity/freeze')
+  async freezeAccount(@Body() body: { address: string; reason: string; frozenBy: string }) {
+    try {
+      this.securityService.freezeAccount(body.address, body.reason, body.frozenBy);
+      return { success: true, message: 'Account frozen successfully' };
+    } catch (error) {
+      this.logger.error('Failed to freeze account:', error);
+      throw error;
+    }
+  }
+
+  @Post('activity/unfreeze')
+  async unfreezeAccount(@Body() body: { address: string }) {
+    try {
+      this.securityService.unfreezeAccount(body.address);
+      return { success: true, message: 'Account unfrozen successfully' };
+    } catch (error) {
+      this.logger.error('Failed to unfreeze account:', error);
+      throw error;
+    }
+  }
+
+  @Get('activity/blacklist')
+  async getBlacklist() {
+    try {
+      return this.securityService.activityMonitor.getBlacklist();
+    } catch (error) {
+      this.logger.error('Failed to get blacklist:', error);
+      throw error;
+    }
+  }
+
+  @Post('activity/blacklist/add')
+  async addToBlacklist(@Body() body: { address: string }) {
+    try {
+      this.securityService.addToBlacklist(body.address);
+      return { success: true, message: 'Address added to blacklist' };
+    } catch (error) {
+      this.logger.error('Failed to add to blacklist:', error);
+      throw error;
+    }
+  }
+
+  @Post('activity/blacklist/remove')
+  async removeFromBlacklist(@Body() body: { address: string }) {
+    try {
+      this.securityService.activityMonitor.removeFromBlacklist(body.address);
+      return { success: true, message: 'Address removed from blacklist' };
+    } catch (error) {
+      this.logger.error('Failed to remove from blacklist:', error);
+      throw error;
+    }
+  }
+
+  @Get('activity/statistics')
+  async getActivityStatistics() {
+    try {
+      return this.securityService.activityMonitor.getStatistics();
+    } catch (error) {
+      this.logger.error('Failed to get activity statistics:', error);
+      throw error;
+    }
+  }
+
+  @Get('activity/:address/history')
+  async getActivityHistory(@Param('address') address: string, @Query('limit') limit?: string) {
+    try {
+      const limitNum = limit ? parseInt(limit, 10) : undefined;
+      return this.securityService.activityMonitor.getActivityHistory(address, limitNum);
+    } catch (error) {
+      this.logger.error(`Failed to get activity history for ${address}:`, error);
+      throw error;
     }
   }
 }

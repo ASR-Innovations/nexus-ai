@@ -117,6 +117,16 @@ const envSchema = z.object({
   STRATEGY_RISK_WEIGHTS_TVL: z.coerce.number().min(0).max(1).default(0.15),
   STRATEGY_RISK_WEIGHTS_VOLATILITY: z.coerce.number().min(0).max(1).default(0.15),
 
+  // Agent Bot Configuration
+  AGENT_BOT_ENABLED: z.coerce.boolean().default(false),
+  AGENT_BOT_PRIVATE_KEY: z.string().regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid private key format').optional(),
+  AGENT_BOT_STAKE_AMOUNT: z.coerce.number().min(0).default(10.0),
+  AGENT_BOT_MAX_ACTIVE_INTENTS: z.coerce.number().min(1).default(5),
+  AGENT_BOT_MIN_REPUTATION: z.coerce.number().min(0).default(3000),
+  AGENT_BOT_AUTO_EXECUTE: z.coerce.boolean().default(true),
+  AGENT_BOT_RISK_TOLERANCE: z.enum(['low', 'medium', 'high']).default('medium'),
+  AGENT_BOT_SPECIALTIES: z.string().default('yield-farming,liquid-staking'),
+
   // Development Configuration
   DEBUG_ENABLED: z.coerce.boolean().default(false),
   MOCK_EXTERNAL_APIS: z.coerce.boolean().default(false),
@@ -133,6 +143,7 @@ export function validateEnvironment(): EnvConfig {
     // Additional validation logic
     validateRiskWeights(config);
     validateContractAddresses(config);
+    validateBotConfiguration(config);
     
     return config;
   } catch (error) {
@@ -207,6 +218,28 @@ function validateContractAddresses(config: EnvConfig): void {
     console.error('Contract addresses must be unique');
     console.error('Check INTENT_VAULT_ADDRESS, AGENT_REGISTRY_ADDRESS, and EXECUTION_MANAGER_ADDRESS');
     process.exit(1);
+  }
+}
+
+function validateBotConfiguration(config: EnvConfig): void {
+  // If bot is enabled, private key is required
+  if (config.AGENT_BOT_ENABLED && !config.AGENT_BOT_PRIVATE_KEY) {
+    console.error('AGENT_BOT_PRIVATE_KEY is required when AGENT_BOT_ENABLED=true');
+    process.exit(1);
+  }
+  
+  // Validate specialties format
+  if (config.AGENT_BOT_SPECIALTIES) {
+    const validSpecialties = ['yield-farming', 'liquid-staking', 'arbitrage', 'general'];
+    const specialties = config.AGENT_BOT_SPECIALTIES.split(',').map(s => s.trim());
+    
+    for (const specialty of specialties) {
+      if (!validSpecialties.includes(specialty)) {
+        console.error(`Invalid bot specialty: ${specialty}`);
+        console.error(`Valid specialties: ${validSpecialties.join(', ')}`);
+        process.exit(1);
+      }
+    }
   }
 }
 
