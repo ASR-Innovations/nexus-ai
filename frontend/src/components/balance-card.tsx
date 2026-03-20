@@ -54,7 +54,7 @@ export function BalanceCard({ balances, className }: BalanceCardProps) {
       <h2 className="text-lg font-semibold mb-4">Balances</h2>
       <div className="space-y-4">
         {Object.entries(groupedBalances).map(([asset, assetBalances]) => {
-          const totalAmount = assetBalances.reduce((sum, balance) => sum + parseFloat(balance.amount), 0);
+          const totalAmount = assetBalances.reduce((sum, balance) => sum + parseFloat(balance.balance), 0);
           const totalValue = assetBalances.reduce((sum, balance) => sum + balance.valueUsd, 0);
 
           return (
@@ -91,7 +91,7 @@ export function BalanceCard({ balances, className }: BalanceCardProps) {
                         <span className="text-muted-foreground">{balance.chain}</span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span>{formatAmount(balance.amount)} {balance.asset}</span>
+                        <span>{formatAmount(balance.balance)} {balance.asset}</span>
                         <span className="text-muted-foreground">
                           {formatUsdValue(balance.valueUsd)}
                         </span>

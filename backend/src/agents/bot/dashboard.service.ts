@@ -178,13 +178,13 @@ export class DashboardService {
 
       // Hydration
       if (hydrationPools.length > 0) {
-        const avgApy = hydrationPools.reduce((sum, pool) => sum + pool.apy, 0) / hydrationPools.length;
-        const totalTvl = hydrationPools.reduce((sum, pool) => sum + parseFloat(pool.tvl), 0);
+        const avgApy = hydrationPools.reduce((sum: number, pool: any) => sum + pool.apy, 0) / hydrationPools.length;
+        const totalTvl = hydrationPools.reduce((sum: number, pool: any) => sum + parseFloat(pool.tvl), 0);
         
         protocols.push({
           name: 'Hydration',
           chain: 'hydration',
-          status: networkStatus.hydration?.isHealthy ? 'healthy' : 'degraded',
+          status: networkStatus.hydration?.status === 'online' ? 'healthy' : 'degraded',
           tvl: totalTvl.toString(),
           apy: avgApy,
           executions: 0, // Would query from execution logs
@@ -193,13 +193,13 @@ export class DashboardService {
 
       // Bifrost
       if (bifrostStaking.length > 0) {
-        const avgApy = bifrostStaking.reduce((sum, staking) => sum + staking.apy, 0) / bifrostStaking.length;
-        const totalStaked = bifrostStaking.reduce((sum, staking) => sum + parseFloat(staking.totalStaked), 0);
+        const avgApy = bifrostStaking.reduce((sum: number, staking: any) => sum + staking.apy, 0) / bifrostStaking.length;
+        const totalStaked = bifrostStaking.reduce((sum: number, staking: any) => sum + parseFloat(staking.tvl), 0);
         
         protocols.push({
           name: 'Bifrost',
           chain: 'bifrost',
-          status: networkStatus.bifrost?.isHealthy ? 'healthy' : 'degraded',
+          status: networkStatus.bifrost?.status === 'online' ? 'healthy' : 'degraded',
           tvl: totalStaked.toString(),
           apy: avgApy,
           executions: 0,
@@ -221,7 +221,7 @@ export class DashboardService {
         protocols.push({
           name: protocolName,
           chain: 'moonbeam',
-          status: networkStatus.moonbeam?.isHealthy ? 'healthy' : 'degraded',
+          status: networkStatus.moonbeam?.status === 'online' ? 'healthy' : 'degraded',
           tvl: data.tvl.toString(),
           apy: data.apy / data.count,
           executions: 0,
@@ -249,7 +249,7 @@ export class DashboardService {
         LIMIT 20
       `);
 
-      return result.rows.map(row => ({
+      return result.rows.map((row: any) => ({
         timestamp: new Date(row.updated_at),
         type: this.mapStatusToActivityType(row.status),
         intentId: row.intent_id,
@@ -320,7 +320,7 @@ export class DashboardService {
         LIMIT 30
       `, [Date.now() - 30 * 24 * 60 * 60 * 1000]); // Last 30 days
 
-      return result.rows.map(row => ({
+      return result.rows.map((row: any) => ({
         date: row.date,
         successful: parseInt(row.successful),
         failed: parseInt(row.failed),
@@ -344,7 +344,7 @@ export class DashboardService {
         LIMIT 30
       `, [Date.now() - 30 * 24 * 60 * 60 * 1000]);
 
-      return result.rows.map(row => ({
+      return result.rows.map((row: any) => ({
         date: row.date,
         gasUsed: row.total_gas.toString(),
       }));
@@ -468,7 +468,7 @@ export class DashboardService {
         queuedIntents: 0, // Would query pending intents
         systemHealth,
         networkStatus: Object.fromEntries(
-          Object.entries(networkStatus).map(([chain, status]) => [chain, status.isHealthy])
+          Object.entries(networkStatus).map(([chain, status]: [string, any]) => [chain, status.status === 'online'])
         ),
       };
     } catch (error) {

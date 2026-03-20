@@ -1,6 +1,4 @@
 import { IsString, IsNotEmpty, IsEthereumAddress, IsOptional, IsEnum, IsNumber, Min, Max, IsInt } from 'class-validator';
-import { Type } from 'class-transformer';
-
 export class ChatMessageDto {
   @IsString()
   @IsNotEmpty()
@@ -46,10 +44,11 @@ export class IntentParamsDto {
   @Min(Date.now() / 1000)
   deadline!: number;
 
+  @IsOptional()
   @IsNumber()
   @Min(0)
   @Max(100)
-  confidence!: number;
+  confidence?: number;
 }
 
 export interface ParseResult {
@@ -68,7 +67,7 @@ export interface IntentParams {
   minYieldBps?: number;
   maxLockDays?: number;
   deadline: number;
-  confidence: number;
+  confidence?: number;
 }
 
 export interface RiskAssessment {

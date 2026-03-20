@@ -1,12 +1,11 @@
 import { Controller, Get } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
-@ApiTags('yields')
+// @ApiTags('yields')
 @Controller('yields')
 export class YieldsController {
   @Get('opportunities')
-  @ApiOperation({ summary: 'Get yield opportunities' })
-  @ApiResponse({ status: 200, description: 'Yield opportunities retrieved successfully' })
+  // @ApiOperation({ summary: 'Get yield opportunities' })
+  // @ApiResponse({ status: 200, description: 'Yield opportunities retrieved successfully' })
   async getOpportunities() {
     return {
       opportunities: [
@@ -32,7 +31,7 @@ export class YieldsController {
   }
 
   @Get('protocols')
-  @ApiOperation({ summary: 'Get yield protocols' })
+  // @ApiOperation({ summary: 'Get yield protocols' })
   async getProtocols() {
     return {
       protocols: [
@@ -43,7 +42,7 @@ export class YieldsController {
   }
 
   @Get('native')
-  @ApiOperation({ summary: 'Get native staking yields' })
+  // @ApiOperation({ summary: 'Get native staking yields' })
   async getNativeYields() {
     return {
       nativeYields: [
@@ -54,7 +53,7 @@ export class YieldsController {
   }
 
   @Get('parachain')
-  @ApiOperation({ summary: 'Get parachain yields' })
+  // @ApiOperation({ summary: 'Get parachain yields' })
   async getParachainYields() {
     return {
       parachainYields: [
@@ -65,7 +64,7 @@ export class YieldsController {
   }
 
   @Get('historical')
-  @ApiOperation({ summary: 'Get historical yield data' })
+  // @ApiOperation({ summary: 'Get historical yield data' })
   async getHistoricalYields() {
     return {
       historicalData: [

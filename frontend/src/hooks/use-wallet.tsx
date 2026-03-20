@@ -17,15 +17,15 @@ interface WalletContextType {
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 const POLKADOT_HUB_CONFIG = {
-  chainId: "0x3e8", // 1000 in hex (Polkadot Asset Hub testnet)
-  chainName: "Polkadot Asset Hub",
+  chainId: "0x190F1B41", // 420420417 decimal (Polkadot Hub Testnet / Paseo)
+  chainName: "Polkadot Hub Testnet (Paseo)",
   nativeCurrency: {
     name: "PAS",
     symbol: "PAS",
     decimals: 18,
   },
-  rpcUrls: ["https://polkadot-asset-hub-rpc.polkadot.io"],
-  blockExplorerUrls: ["https://assethub-polkadot.subscan.io"],
+  rpcUrls: ["https://eth-rpc-testnet.polkadot.io/"],
+  blockExplorerUrls: ["https://assethub-paseo.subscan.io"],
 };
 
 export function WalletProvider({ children }: { children: ReactNode }) {
@@ -55,7 +55,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
       // Check if we're on the correct network
       const network = await browserProvider.getNetwork();
-      if (network.chainId !== BigInt(1000)) {
+      if (network.chainId !== BigInt(420420417)) {
         await switchNetwork();
       }
     } catch (error) {

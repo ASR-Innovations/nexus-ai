@@ -1,9 +1,27 @@
 import { Injectable, ExecutionContext } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerException } from '@nestjs/throttler';
 import { Request } from 'express';
 
 @Injectable()
 export class WalletThrottlerGuard extends ThrottlerGuard {
+  constructor(
+    protected readonly options: any,
+    protected readonly storageService: any,
+    protected readonly reflector: Reflector,
+  ) {
+    super(options, storageService, reflector);
+  }
+
+  /**
+   * Override canActivate to properly handle @SkipThrottle() decorator
+   * The parent class handles this, but we need to ensure it's called
+   */
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    // Call parent's canActivate which handles @SkipThrottle() decorator
+    return super.canActivate(context);
+  }
+
   protected async getTracker(req: Request): Promise<string> {
     // Extract wallet address from various sources
     const walletAddress = this.extractWalletAddress(req);
@@ -45,19 +63,9 @@ export class WalletThrottlerGuard extends ThrottlerGuard {
 
   protected async throwThrottlingException(context: ExecutionContext): Promise<void> {
     const response = context.switchToHttp().getResponse();
-    const request = context.switchToHttp().getRequest();
     
-    // Get the current rate limit info
-    const tracker = await this.getTracker(request);
-    // TODO: Fix getRecord method - not available on ThrottlerStorage
-    // const ttl = await this.storageService.getRecord(tracker);
-    const ttl = null;
-    
-    // Set Retry-After header
-    if (ttl && (ttl as any).timeToExpire) {
-      const retryAfter = Math.ceil((ttl as any).timeToExpire / 1000);
-      response.setHeader('Retry-After', retryAfter);
-    }
+    // Set Retry-After header (default to 60 seconds)
+    response.setHeader('Retry-After', 60);
 
     throw new ThrottlerException('Rate limit exceeded. Please try again later.');
   }

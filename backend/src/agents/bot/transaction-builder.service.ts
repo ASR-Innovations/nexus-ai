@@ -230,9 +230,8 @@ export class TransactionBuilderService implements TransactionBuilder {
     this.logger.debug('Optimizing gas price', { urgency });
 
     try {
-      // For now, use a default chain ID (Moonbase Alpha)
-      // In production, this would be passed as a parameter
-      const chainId = 1287;
+      // Use Polkadot Hub Testnet as default chain ID
+      const chainId = 420420417;
       
       // Check cache first
       const cached = this.gasPriceCache.get(chainId);
@@ -291,7 +290,7 @@ export class TransactionBuilderService implements TransactionBuilder {
       
       // Query fallback gas price from network
       try {
-        const provider = this.getProvider(1287);
+        const provider = this.getProvider(420420417); // Polkadot Hub Testnet
         const gasPrice = await provider.send('eth_gasPrice', []);
         this.logger.warn(`Using fallback gas price from network: ${gasPrice}`);
         return BigInt(gasPrice);
@@ -503,8 +502,8 @@ export class TransactionBuilderService implements TransactionBuilder {
     this.logger.debug('Waiting for transaction confirmation', { txHash, confirmations });
 
     try {
-      // Use default chain for now (Moonbase Alpha)
-      const chainId = 1287;
+      // Use Polkadot Hub Testnet as default chain
+      const chainId = 420420417;
       const provider = this.getProvider(chainId);
 
       // Wait for transaction receipt
@@ -651,6 +650,7 @@ export class TransactionBuilderService implements TransactionBuilder {
   private getRpcUrl(chainId: number): string {
     // Map chain IDs to RPC URLs
     const rpcUrls: Record<number, string> = {
+      420420417: 'https://eth-rpc-testnet.polkadot.io/', // Polkadot Hub Testnet (Paseo) - PRIMARY
       1287: 'https://rpc.api.moonbase.moonbeam.network', // Moonbase Alpha
       1: 'https://eth.llamarpc.com', // Ethereum Mainnet
       5: 'https://goerli.infura.io/v3/YOUR_INFURA_KEY', // Goerli (deprecated)

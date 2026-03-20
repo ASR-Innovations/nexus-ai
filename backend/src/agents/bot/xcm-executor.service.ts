@@ -46,9 +46,9 @@ export class XCMExecutorService implements XCMExecutor {
     nativeAsset: string;
   }> = {
     polkadot: {
-      wsEndpoint: 'wss://rpc.polkadot.io',
+      wsEndpoint: 'wss://paseo.rpc.amforc.com', // Paseo testnet relay chain
       parachainId: 0,
-      nativeAsset: 'DOT',
+      nativeAsset: 'PAS',
     },
     hydration: {
       wsEndpoint: 'wss://rpc.hydradx.cloud',
@@ -273,10 +273,12 @@ export class XCMExecutorService implements XCMExecutor {
       // Sign and submit the XCM transaction with real account
       // Note: In production, the signer would be passed from context
       const txHash = await new Promise<string>((resolve, reject) => {
+        // TODO: Pass actual signer from wallet manager or context
+        const signer = '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY'; // Placeholder
+        
         xcmCall.signAndSend(
-          // Signer would come from wallet/keyring in production
-          // For now, we'll need the actual account to be passed in
-          async (result: any) => {
+          signer,
+          (result: any) => {
             if (result.status.isInBlock) {
               resolve(result.txHash.toHex());
             } else if (result.status.isFinalized) {
@@ -417,7 +419,7 @@ export class XCMExecutorService implements XCMExecutor {
       // Query payment info for the XCM call
       let totalFee = BigInt(0);
       try {
-        const paymentInfo = await api.tx.xcmPallet.send(dest, message).paymentInfo(api.registry.createType('AccountId', '0x0000000000000000000000000000000000000000000000000000000000000000'));
+        const paymentInfo = await api.tx.xcmPallet.send(dest, message).paymentInfo('5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY');
         totalFee = paymentInfo.partialFee.toBigInt();
       } catch (error) {
         this.logger.warn('Could not query exact fee, using estimate', error);
@@ -722,7 +724,8 @@ export class XCMExecutorService implements XCMExecutor {
         // Check for XCM success/failure events in recent blocks
         const events = await destApi.query.system.events.at(latestBlock.block.header.hash);
         
-        for (const record of events) {
+        // Cast to any to enable iteration over Codec-wrapped event array
+        for (const record of events as any) {
           const { event } = record;
           
           // Check for XCM execution success

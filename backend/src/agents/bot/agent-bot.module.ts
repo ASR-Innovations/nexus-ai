@@ -15,10 +15,12 @@ import { CallDataEncoderService } from './call-data-encoder.service';
 import { TransactionBuilderService } from './transaction-builder.service';
 import { XCMExecutorService } from './xcm-executor.service';
 import { FundManagerService } from './fund-manager.service';
+import { ProtocolIntegrationService } from './protocol-integration.service';
 import { RealProtocolIntegrationService } from './real-protocol-integration.service';
 import { ExecutionEngineService } from './execution-engine.service';
 import { ErrorHandlingService } from './error-handling.service';
 import { MonitoringService } from './monitoring.service';
+import { DashboardService } from './dashboard.service';
 import { ProductionBotService } from './production-bot.service';
 import { AgentBotController } from './agent-bot.controller';
 import { AgentBotService } from './agent-bot.service';
@@ -46,6 +48,7 @@ import { BatchProcessorService } from './batch-processor.service';
     
     // Fund and protocol services
     FundManagerService,
+    ProtocolIntegrationService,
     RealProtocolIntegrationService,
     
     // Execution and error handling
@@ -54,6 +57,7 @@ import { BatchProcessorService } from './batch-processor.service';
     
     // Monitoring
     MonitoringService,
+    DashboardService,
     
     // Performance optimization services
     ExecutionQueueService,

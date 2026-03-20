@@ -1,12 +1,11 @@
 import { Controller, Get, Post, Body } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
-@ApiTags('strategy')
+// @ApiTags('strategy')
 @Controller('api/strategy')
 export class StrategyController {
   @Get('templates')
-  @ApiOperation({ summary: 'Get strategy templates' })
-  @ApiResponse({ status: 200, description: 'Strategy templates retrieved successfully' })
+  // @ApiOperation({ summary: 'Get strategy templates' })
+  // @ApiResponse({ status: 200, description: 'Strategy templates retrieved successfully' })
   async getTemplates() {
     return {
       templates: [
@@ -32,7 +31,7 @@ export class StrategyController {
   }
 
   @Get('protocols')
-  @ApiOperation({ summary: 'Get supported protocols' })
+  // @ApiOperation({ summary: 'Get supported protocols' })
   async getProtocols() {
     return {
       protocols: [
@@ -56,8 +55,8 @@ export class StrategyController {
   }
 
   @Post('generate')
-  @ApiOperation({ summary: 'Generate custom strategy' })
-  @ApiResponse({ status: 201, description: 'Strategy generated successfully' })
+  // @ApiOperation({ summary: 'Generate custom strategy' })
+  // @ApiResponse({ status: 201, description: 'Strategy generated successfully' })
   async generateStrategy(@Body() body: any) {
     return {
       strategyId: Date.now().toString(),

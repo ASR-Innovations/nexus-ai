@@ -2,7 +2,7 @@ import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { AgentsService } from './agents.service';
 
-@Controller('api/agents')
+@Controller('agents')
 @UseGuards(ThrottlerGuard)
 export class AgentsController {
   constructor(private readonly agentsService: AgentsService) {}

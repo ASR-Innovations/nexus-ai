@@ -92,13 +92,16 @@ export const mockProvider = {
 };
 
 // Mock wallet for testing
-export const mockWallet = {
+export const mockWallet: any = {
   address: '0x742d35Cc6634C0532925a3b8D4C9db96C4b5Da5A',
   privateKey: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
   signTransaction: jest.fn().mockResolvedValue('0xsignedtransaction'),
   sendTransaction: jest.fn().mockImplementation(() => mockProvider.sendTransaction()),
-  connect: jest.fn().mockReturnValue(mockWallet)
+  connect: jest.fn()
 };
+
+// Set up circular reference after object creation
+mockWallet.connect.mockReturnValue(mockWallet);
 
 // Mock contract for testing
 export const mockContract = {

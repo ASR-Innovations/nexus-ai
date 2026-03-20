@@ -10,7 +10,8 @@ interface YieldPositionProps {
 }
 
 export function YieldPosition({ positions, className }: YieldPositionProps) {
-  const formatAmount = (amount: string) => {
+  const formatAmount = (amount: string | undefined) => {
+    if (!amount) return "0";
     const num = parseFloat(amount);
     if (num === 0) return "0";
     if (num < 0.001) return "< 0.001";
@@ -19,11 +20,13 @@ export function YieldPosition({ positions, className }: YieldPositionProps) {
     return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
   };
 
-  const formatApy = (apyBps: number) => {
+  const formatApy = (apyBps: number | undefined) => {
+    if (!apyBps) return "0.00";
     return (apyBps / 100).toFixed(2);
   };
 
-  const formatTimeAgo = (timestamp: number) => {
+  const formatTimeAgo = (timestamp: number | undefined) => {
+    if (!timestamp) return "N/A";
     const now = Date.now();
     const diff = now - timestamp * 1000; // Convert to milliseconds
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
@@ -36,9 +39,9 @@ export function YieldPosition({ positions, className }: YieldPositionProps) {
     return "Just now";
   };
 
-  const calculateYieldGain = (deposited: string, current: string) => {
-    const depositedNum = parseFloat(deposited);
-    const currentNum = parseFloat(current);
+  const calculateYieldGain = (deposited: string | undefined, current: string | undefined) => {
+    const depositedNum = parseFloat(deposited ?? '0');
+    const currentNum = parseFloat(current ?? '0');
     const gain = currentNum - depositedNum;
     const gainPercent = depositedNum > 0 ? (gain / depositedNum) * 100 : 0;
     
@@ -68,7 +71,7 @@ export function YieldPosition({ positions, className }: YieldPositionProps) {
           const yieldGain = calculateYieldGain(position.depositedAmount, position.currentValue);
           
           return (
-            <div key={position.intentId} className="border border-border/50 rounded-lg p-4">
+            <div key={position.id} className="border border-border/50 rounded-lg p-4">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">

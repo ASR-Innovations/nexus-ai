@@ -4,7 +4,7 @@ import { WalletAuthGuard } from '../shared/guards/wallet-auth.guard';
 import { IntentService } from './intent.service';
 import { CreateIntentDto, ApproveIntentDto, ExecuteIntentDto } from './intent.dto';
 
-@Controller('api/intent')
+@Controller('intent')
 @UseGuards(ThrottlerGuard)
 export class IntentController {
   constructor(private readonly intentService: IntentService) {}

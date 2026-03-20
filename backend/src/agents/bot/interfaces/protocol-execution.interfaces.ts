@@ -57,6 +57,12 @@ export interface SecurityCheck {
 // Protocol Integration Interfaces
 // ============================================================================
 
+// Protocol adapter type aliases (implementations in real-protocol-integration.service.ts)
+export type HydrationAdapter = ProtocolAdapter;
+export type BifrostAdapter = ProtocolAdapter;
+export type StellaSwapAdapter = ProtocolAdapter;
+export type BeamSwapAdapter = ProtocolAdapter;
+
 export interface ProtocolIntegrationService {
   // Protocol-specific adapters
   hydrationAdapter: HydrationAdapter;
@@ -586,7 +592,7 @@ export interface Intent {
 export interface ExecutionContext {
   intentId: number;
   agentAddress: string;
-  wallet: ethers.Wallet;
+  wallet: ethers.HDNodeWallet;
   provider: ethers.JsonRpcProvider;
   maxGasPrice: bigint;
   slippageTolerance: number;

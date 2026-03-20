@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Activity, TrendingUp, Zap, DollarSign, Clock, CheckCircle } from 'lucide-react';
+import { Activity, DollarSign, Clock, CheckCircle } from 'lucide-react';
 import { useBotStatus, useBotDashboard, useBotMetrics } from '@/hooks/use-bot';
 import { StatCard } from './ui/stat-card';
 import { AnimatedCard } from './ui/animated-card';
@@ -24,7 +24,7 @@ export function BotDashboard() {
     steps: [
       { id: '1', name: 'Validate Intent', status: 'completed' as const, timestamp: Date.now() - 5000, details: 'Intent validated successfully' },
       { id: '2', name: 'Check Balances', status: 'completed' as const, timestamp: Date.now() - 4000, details: 'Sufficient balance confirmed' },
-      { id: '3', name: 'Execute Swap', status: 'in_progress' as const, details: 'Swapping DOT to USDT on Hydration' },
+      { id: '3', name: 'Execute Swap', status: 'in_progress' as const, details: 'Swapping PAS to USDT on Hydration' },
       { id: '4', name: 'Confirm Transaction', status: 'pending' as const },
       { id: '5', name: 'Update Records', status: 'pending' as const },
     ],
@@ -32,42 +32,33 @@ export function BotDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 p-8">
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="max-w-7xl mx-auto space-y-8"
-      >
+    <div className="min-h-full bg-white dark:bg-black overflow-auto">
+      <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-between"
+        >
           <div>
-            <h1 className="text-4xl font-bold text-white mb-2">
-              Autonomous Bot Dashboard
+            <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-1">
+              Bot Dashboard
             </h1>
-            <p className="text-gray-400">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               Real-time monitoring and control of your DeFi agent
             </p>
           </div>
-          
-          <motion.div
-            animate={{
-              scale: status?.isMonitoring ? [1, 1.1, 1] : 1,
-            }}
-            transition={{
-              duration: 2,
-              repeat: status?.isMonitoring ? Infinity : 0,
-            }}
-            className="flex items-center gap-2 px-4 py-2 rounded-full bg-green-500/20 border border-green-500/50"
-          >
-            <div className={`w-2 h-2 rounded-full ${status?.isMonitoring ? 'bg-green-400 animate-pulse' : 'bg-gray-400'}`} />
-            <span className="text-sm font-medium text-white">
+
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+            <div className={`w-2 h-2 rounded-full ${status?.isMonitoring ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
               {status?.isMonitoring ? 'Active' : 'Inactive'}
             </span>
-          </motion.div>
-        </div>
+          </div>
+        </motion.div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             title="Total Executions"
             value={metrics?.totalExecutions || 0}
@@ -117,32 +108,32 @@ export function BotDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Recent Activity */}
           <AnimatedCard className="lg:col-span-2 p-6" delay={0.4}>
-            <h2 className="text-xl font-bold text-white mb-4">Recent Activity</h2>
-            <div className="space-y-3">
+            <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">Recent Activity</h2>
+            <div className="space-y-2">
               {dashboard?.recentActivity?.slice(0, 5).map((activity, index) => (
                 <motion.div
                   key={activity.intentId}
-                  initial={{ opacity: 0, x: -20 }}
+                  initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.5 + index * 0.1 }}
-                  className="flex items-center justify-between p-4 rounded-lg bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+                  className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-900/50 hover:bg-gray-100 dark:hover:bg-gray-800/60 transition-colors cursor-pointer"
                 >
                   <div className="flex items-center gap-3">
                     <div className={`w-2 h-2 rounded-full ${
-                      activity.status === 'completed' ? 'bg-green-400' :
-                      activity.status === 'failed' ? 'bg-red-400' :
-                      'bg-yellow-400'
+                      activity.status === 'completed' ? 'bg-green-500' :
+                      activity.status === 'failed' ? 'bg-red-500' :
+                      'bg-yellow-500'
                     }`} />
                     <div>
-                      <p className="text-sm font-medium text-white">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
                         Intent #{activity.intentId}
                       </p>
-                      <p className="text-xs text-gray-400">{activity.type}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{activity.type}</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-medium text-white">{activity.value}</p>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">{activity.value}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
                       {new Date(activity.timestamp).toLocaleTimeString()}
                     </p>
                   </div>
@@ -153,26 +144,26 @@ export function BotDashboard() {
 
           {/* Protocol Distribution */}
           <AnimatedCard className="p-6" delay={0.5}>
-            <h2 className="text-xl font-bold text-white mb-4">Protocol Distribution</h2>
+            <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">Protocol Distribution</h2>
             <div className="space-y-4">
               {dashboard?.protocolDistribution?.map((protocol, index) => (
                 <motion.div
                   key={protocol.protocol}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   transition={{ delay: 0.6 + index * 0.1 }}
-                  className="space-y-2"
+                  className="space-y-1.5"
                 >
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-400">{protocol.protocol}</span>
-                    <span className="text-white font-medium">{protocol.count}</span>
+                    <span className="text-gray-600 dark:text-gray-400">{protocol.protocol}</span>
+                    <span className="text-gray-900 dark:text-white font-medium">{protocol.count}</span>
                   </div>
-                  <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${(protocol.count / (dashboard?.overview?.totalExecutions || 1)) * 100}%` }}
                       transition={{ duration: 1, delay: 0.7 + index * 0.1 }}
-                      className="h-full bg-gradient-to-r from-purple-500 to-blue-500"
+                      className="h-full bg-purple-500 rounded-full"
                     />
                   </div>
                 </motion.div>
@@ -183,42 +174,42 @@ export function BotDashboard() {
 
         {/* Performance Chart */}
         <AnimatedCard className="p-6" delay={0.6}>
-          <h2 className="text-xl font-bold text-white mb-4">Performance Over Time</h2>
-          <div className="h-64 flex items-end justify-between gap-2">
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">Performance Over Time</h2>
+          <div className="h-48 flex items-end justify-between gap-1">
             {dashboard?.performanceChart?.map((data, index) => (
               <motion.div
                 key={data.timestamp}
                 initial={{ height: 0 }}
                 animate={{ height: `${data.successRate}%` }}
                 transition={{ duration: 0.5, delay: 0.7 + index * 0.05 }}
-                className="flex-1 bg-gradient-to-t from-purple-500 to-blue-500 rounded-t-lg hover:opacity-80 transition-opacity cursor-pointer relative group"
+                className="flex-1 bg-purple-500/60 dark:bg-purple-500/80 rounded-t hover:bg-purple-500 transition-colors cursor-pointer relative group"
                 title={`${data.executions} executions - ${data.successRate}% success`}
               >
-                <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-black/90 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                  {data.executions} executions<br/>{data.successRate}% success
+                <div className="absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 bg-gray-900 dark:bg-gray-700 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                  {data.executions} exec · {data.successRate}%
                 </div>
               </motion.div>
             ))}
           </div>
         </AnimatedCard>
-      </motion.div>
+      </div>
     </div>
   );
 }
 
 function DashboardSkeleton() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 p-8">
-      <div className="max-w-7xl mx-auto space-y-8">
-        <div className="h-20 bg-white/5 rounded-lg animate-pulse" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="min-h-full bg-white dark:bg-black overflow-auto">
+      <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
+        <div className="h-14 bg-gray-100 dark:bg-gray-900 rounded-lg animate-pulse" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-32 bg-white/5 rounded-2xl animate-pulse" />
+            <div key={i} className="h-28 bg-gray-100 dark:bg-gray-900 rounded-xl animate-pulse" />
           ))}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="h-96 bg-white/5 rounded-2xl animate-pulse" />
-          <div className="lg:col-span-2 h-96 bg-white/5 rounded-2xl animate-pulse" />
+          <div className="h-80 bg-gray-100 dark:bg-gray-900 rounded-xl animate-pulse" />
+          <div className="lg:col-span-2 h-80 bg-gray-100 dark:bg-gray-900 rounded-xl animate-pulse" />
         </div>
       </div>
     </div>

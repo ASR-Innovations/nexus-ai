@@ -29,6 +29,20 @@ export class WalletAuthGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+
+    // Allow bypassing signature verification in development/testing
+    if (process.env.SKIP_SIGNATURE_VERIFICATION === 'true') {
+      const address = request.headers['x-wallet-address'] as string;
+      if (address && ethers.isAddress(address)) {
+        request.walletAddress = address;
+        this.logger.debug(`[DEV] Skipping signature verification for: ${address}`);
+        return true;
+      } else {
+        // In dev mode, allow requests even without valid wallet address
+        this.logger.debug(`[DEV] Allowing request without valid wallet address (SKIP_SIGNATURE_VERIFICATION=true)`);
+        return true;
+      }
+    }
     
     try {
       // Extract signature data from request
@@ -147,15 +161,13 @@ export class WalletAuthGuard implements CanActivate {
 
   /**
    * Check if signature timestamp is within validity window
+   * Handles both seconds (10-digit) and milliseconds (13-digit) timestamps
    */
   private isSignatureValid(timestamp: number): boolean {
     const now = Date.now();
-    const signatureTime = timestamp * 1000; // Convert to milliseconds if needed
-    
-    // Handle both seconds and milliseconds timestamps
-    const actualSignatureTime = signatureTime > now ? timestamp : signatureTime;
-    
-    const timeDiff = Math.abs(now - actualSignatureTime);
+    // If timestamp is in seconds (10 digits), convert to ms; otherwise use as-is
+    const timestampMs = timestamp < 1e12 ? timestamp * 1000 : timestamp;
+    const timeDiff = Math.abs(now - timestampMs);
     return timeDiff <= this.SIGNATURE_VALIDITY_MS;
   }
 

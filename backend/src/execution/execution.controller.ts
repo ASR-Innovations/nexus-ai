@@ -2,7 +2,7 @@ import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { ExecutionService } from './execution.service';
 
-@Controller('api/execution')
+@Controller('execution')
 @UseGuards(ThrottlerGuard)
 export class ExecutionController {
   constructor(private readonly executionService: ExecutionService) {}

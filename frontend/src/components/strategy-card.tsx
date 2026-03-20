@@ -10,20 +10,25 @@ interface StrategyCardProps {
 }
 
 export function StrategyCard({ strategy, onApprove, onReject }: StrategyCardProps) {
-  const getRiskColor = (riskScore: number) => {
-    if (riskScore <= 30) return "text-green-600 bg-green-100";
-    if (riskScore <= 60) return "text-yellow-600 bg-yellow-100";
+  const resolvedApy = strategy.apy ?? (strategy.estimatedApyBps != null ? strategy.estimatedApyBps / 100 : 0);
+  const resolvedRisk = strategy.risk ?? strategy.riskLevel ?? 'medium';
+  const resolvedLockPeriod = strategy.lockPeriod ?? strategy.lockDays ?? 0;
+  const resolvedNetApy = strategy.netApy ?? (strategy.netApyBps != null ? strategy.netApyBps / 100 : resolvedApy);
+
+  const getRiskColor = (risk: 'low' | 'medium' | 'high') => {
+    if (risk === 'low') return "text-green-600 bg-green-100";
+    if (risk === 'medium') return "text-yellow-600 bg-yellow-100";
     return "text-red-600 bg-red-100";
   };
 
-  const getRiskLabel = (riskScore: number) => {
-    if (riskScore <= 30) return "Low Risk";
-    if (riskScore <= 60) return "Medium Risk";
+  const getRiskLabel = (risk: 'low' | 'medium' | 'high') => {
+    if (risk === 'low') return "Low Risk";
+    if (risk === 'medium') return "Medium Risk";
     return "High Risk";
   };
 
-  const formatAPY = (apyBps: number) => {
-    return (apyBps / 100).toFixed(2) + "%";
+  const formatAPY = (apy: number) => {
+    return apy.toFixed(2) + "%";
   };
 
   const formatLockPeriod = (days: number) => {
@@ -43,8 +48,8 @@ export function StrategyCard({ strategy, onApprove, onReject }: StrategyCardProp
             {strategy.protocol} on {strategy.chain}
           </p>
         </div>
-        <div className={`px-3 py-1 rounded-full text-xs font-medium ${getRiskColor(strategy.riskScore)}`}>
-          {getRiskLabel(strategy.riskScore)}
+        <div className={`px-3 py-1 rounded-full text-xs font-medium ${getRiskColor(resolvedRisk)}`}>
+          {getRiskLabel(resolvedRisk)}
         </div>
       </div>
 
@@ -53,23 +58,23 @@ export function StrategyCard({ strategy, onApprove, onReject }: StrategyCardProp
         <div className="text-center">
           <div className="flex items-center justify-center gap-1 text-green-600 mb-1">
             <TrendingUp className="h-4 w-4" />
-            <span className="text-lg font-semibold">{formatAPY(strategy.estimatedApyBps)}</span>
+            <span className="text-lg font-semibold">{formatAPY(resolvedApy)}</span>
           </div>
           <p className="text-xs text-muted-foreground">Est. APY</p>
         </div>
-        
+
         <div className="text-center">
           <div className="flex items-center justify-center gap-1 mb-1">
             <Shield className="h-4 w-4" />
-            <span className="text-lg font-semibold">{strategy.riskScore}</span>
+            <span className="text-lg font-semibold">{resolvedRisk.charAt(0).toUpperCase() + resolvedRisk.slice(1)}</span>
           </div>
-          <p className="text-xs text-muted-foreground">Risk Score</p>
+          <p className="text-xs text-muted-foreground">Risk Level</p>
         </div>
-        
+
         <div className="text-center">
           <div className="flex items-center justify-center gap-1 mb-1">
             <Clock className="h-4 w-4" />
-            <span className="text-lg font-semibold">{formatLockPeriod(strategy.lockDays)}</span>
+            <span className="text-lg font-semibold">{formatLockPeriod(resolvedLockPeriod)}</span>
           </div>
           <p className="text-xs text-muted-foreground">Lock Period</p>
         </div>
@@ -79,7 +84,7 @@ export function StrategyCard({ strategy, onApprove, onReject }: StrategyCardProp
       <div className="bg-muted/50 rounded-lg p-3">
         <div className="flex justify-between items-center text-sm">
           <span>Net APY (after costs):</span>
-          <span className="font-semibold text-green-600">{formatAPY(strategy.netApyBps)}</span>
+          <span className="font-semibold text-green-600">{formatAPY(resolvedNetApy)}</span>
         </div>
         <div className="flex justify-between items-center text-sm mt-1">
           <span>Estimated gas cost:</span>

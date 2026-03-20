@@ -109,9 +109,9 @@ export class PortfolioService {
         const hubBalance = await this.getHubBalance(address);
         if (hubBalance > BigInt(0)) {
           balances.push({
-            asset: 'DOT',
-            chain: 'Polkadot Hub',
-            amount: hubBalance.toString(),
+            asset: 'PAS',
+            chain: 'Polkadot Hub Testnet (Paseo)',
+            balance: hubBalance.toString(),
             valueUsd: parseFloat(hubBalance.toString()) / 1e18 * dotPriceUsd,
           });
         }
@@ -122,9 +122,11 @@ export class PortfolioService {
       // Hydration balances - handle errors gracefully
       try {
         const hydrationBalances = await this.getHydrationBalances(address);
-        balances.push(...hydrationBalances.map(balance => ({
-          ...balance,
-          valueUsd: parseFloat(balance.amount) / 1e18 * dotPriceUsd, // Assuming DOT for now
+        balances.push(...hydrationBalances.map(b => ({
+          asset: b.asset,
+          chain: b.chain,
+          balance: b.balance,
+          valueUsd: parseFloat(b.balance) / 1e18 * dotPriceUsd,
         })));
       } catch (error) {
         this.logger.warn(`Failed to get Hydration balances for ${address}:`, error);
@@ -133,9 +135,11 @@ export class PortfolioService {
       // Bifrost balances - handle errors gracefully
       try {
         const bifrostBalances = await this.getBifrostBalances(address);
-        balances.push(...bifrostBalances.map(balance => ({
-          ...balance,
-          valueUsd: parseFloat(balance.amount) / 1e18 * dotPriceUsd, // Assuming DOT for now
+        balances.push(...bifrostBalances.map(b => ({
+          asset: b.asset,
+          chain: b.chain,
+          balance: b.balance,
+          valueUsd: parseFloat(b.balance) / 1e18 * dotPriceUsd,
         })));
       } catch (error) {
         this.logger.warn(`Failed to get Bifrost balances for ${address}:`, error);
@@ -151,8 +155,24 @@ export class PortfolioService {
 
   private async getHubBalance(address: string): Promise<bigint> {
     try {
+      this.logger.log(`[getHubBalance] Fetching balance for ${address}`);
       const provider = this.contractProvider.getProvider();
+      
+      if (!provider) {
+        this.logger.error('[getHubBalance] Provider is null or undefined - trying to initialize...');
+        // Try to get provider from contract service directly
+        const { ethers } = await import('ethers');
+        const rpcUrl = process.env.POLKADOT_HUB_RPC_URL || 'https://eth-rpc-testnet.polkadot.io/';
+        const fallbackProvider = new ethers.JsonRpcProvider(rpcUrl);
+        this.logger.log(`[getHubBalance] Created fallback provider with RPC: ${rpcUrl}`);
+        const balance = await fallbackProvider.getBalance(address);
+        this.logger.log(`[getHubBalance] Balance fetched with fallback: ${balance.toString()} wei (${Number(balance) / 10**18} PAS)`);
+        return balance;
+      }
+      
+      this.logger.log(`[getHubBalance] Provider obtained, calling getBalance...`);
       const balance = await provider.getBalance(address);
+      this.logger.log(`[getHubBalance] Balance fetched: ${balance.toString()} wei (${Number(balance) / 10**18} PAS)`);
       return balance;
     } catch (error) {
       this.logger.error(`Failed to get Hub balance for ${address}:`, error);
@@ -169,10 +189,8 @@ export class PortfolioService {
         return balances;
       }
 
-      // Convert Ethereum address to Substrate address format
       const substrateAddress = this.convertToSubstrateAddress(address);
 
-      // Query native DOT balance on Hydration
       const accountInfo = await this.hydrationApi.query.system.account(substrateAddress);
       const accountData = accountInfo.toJSON() as any;
       const freeBalance = BigInt(accountData.data?.free || '0');
@@ -181,24 +199,22 @@ export class PortfolioService {
         balances.push({
           asset: 'DOT',
           chain: 'Hydration',
-          amount: freeBalance.toString(),
+          balance: freeBalance.toString(),
         });
       }
 
-      // Query other asset balances (HDX, USDT, etc.)
       const assets = await this.hydrationApi.query.tokens.accounts.entries(substrateAddress);
-      for (const [key, balance] of assets) {
+      for (const [key, bal] of assets) {
         const assetId = key.args[1].toString();
-        const balanceData = balance.toJSON() as any;
-        const freeBalance = BigInt(balanceData?.free || '0');
+        const balanceData = bal.toJSON() as any;
+        const assetFree = BigInt(balanceData?.free || '0');
 
-        if (freeBalance > 0n) {
-          // Map asset ID to symbol (simplified mapping)
+        if (assetFree > 0n) {
           const assetSymbol = this.mapHydrationAssetId(assetId);
           balances.push({
             asset: assetSymbol,
             chain: 'Hydration',
-            amount: freeBalance.toString(),
+            balance: assetFree.toString(),
           });
         }
       }
@@ -219,10 +235,8 @@ export class PortfolioService {
         return balances;
       }
 
-      // Convert Ethereum address to Substrate address format
       const substrateAddress = this.convertToSubstrateAddress(address);
 
-      // Query native DOT balance on Bifrost
       const accountInfo = await this.bifrostApi.query.system.account(substrateAddress);
       const accountData = accountInfo.toJSON() as any;
       const freeBalance = BigInt(accountData.data?.free || '0');
@@ -231,24 +245,22 @@ export class PortfolioService {
         balances.push({
           asset: 'DOT',
           chain: 'Bifrost',
-          amount: freeBalance.toString(),
+          balance: freeBalance.toString(),
         });
       }
 
-      // Query vDOT and other liquid staking tokens
       const tokens = await this.bifrostApi.query.tokens.accounts.entries(substrateAddress);
-      for (const [key, balance] of tokens) {
+      for (const [key, tok] of tokens) {
         const tokenId = key.args[1].toString();
-        const balanceData = balance.toJSON() as any;
-        const freeBalance = BigInt(balanceData?.free || '0');
+        const balanceData = tok.toJSON() as any;
+        const tokenFree = BigInt(balanceData?.free || '0');
 
-        if (freeBalance > 0n) {
-          // Map token ID to symbol (simplified mapping)
+        if (tokenFree > 0n) {
           const tokenSymbol = this.mapBifrostTokenId(tokenId);
           balances.push({
             asset: tokenSymbol,
             chain: 'Bifrost',
-            amount: freeBalance.toString(),
+            balance: tokenFree.toString(),
           });
         }
       }
@@ -261,62 +273,70 @@ export class PortfolioService {
   }
 
   async getYieldPositions(address: string): Promise<YieldPosition[]> {
+    try {
+      const intentVault = this.contractProvider.getIntentVaultContract();
+      const positions: YieldPosition[] = [];
+
+      // Fetch all intent IDs for this user in a single contract call
+      let intentIds: bigint[];
       try {
-        // Query active intents from IntentVault contract
-        const positions: YieldPosition[] = [];
-
-        // Get all intents for this user from the contract
-        // Note: This is a simplified approach - in production, you'd want to use events or indexer
-        const intentVault = this.contractProvider.getIntentVaultContract();
-
-        // Get next intent ID to know the range to check
-        // Since we don't have direct access to getNextIntentId, we'll try a reasonable range
-        const maxIntentId = 100; // Check first 100 intents
-
-        for (let i = 1; i <= maxIntentId; i++) {
-          try {
-            // Try to get intent data directly from contract
-            const intentData = await intentVault.intents(i);
-
-            // Check if this intent belongs to the user and is in an active state
-            if (intentData.user.toLowerCase() === address.toLowerCase() && 
-                (intentData.status === 4 || intentData.status === 5)) { // EXECUTING or AWAITING_CONFIRMATION
-
-              // Calculate current value and accrued yield
-              const depositedAmount = intentData.amount.toString();
-              const startedAt = Number(intentData.createdAt) * 1000; // Convert to milliseconds
-              const daysSinceStart = (Date.now() - startedAt) / (1000 * 60 * 60 * 24);
-
-              // Estimate current value based on time elapsed and assumed APY
-              // This is simplified - in production, you'd query the actual protocol
-              const estimatedApyBps = 1000; // 10% APY as default
-              const accruedValue = (parseFloat(depositedAmount) * estimatedApyBps / 10000 * daysSinceStart / 365).toString();
-              const currentValue = (parseFloat(depositedAmount) + parseFloat(accruedValue)).toString();
-
-              positions.push({
-                intentId: i,
-                protocol: 'Unknown', // Would need to decode execution plan to determine
-                chain: 'Cross-chain',
-                asset: 'DOT',
-                depositedAmount,
-                currentValue,
-                apyBps: estimatedApyBps,
-                accruedValue,
-                startedAt,
-              });
-            }
-          } catch (error) {
-            // Intent might not exist or be accessible, continue to next
-            continue;
-          }
-        }
-
-        return positions;
-      } catch (error) {
-        this.logger.error('Yield positions error:', error);
+        intentIds = await intentVault.getUserIntents(address);
+      } catch (err) {
+        this.logger.warn(`getUserIntents failed for ${address}, falling back to empty:`, err);
         return [];
       }
+
+      if (!intentIds || intentIds.length === 0) {
+        return [];
+      }
+
+      this.logger.log(`Found ${intentIds.length} on-chain intents for ${address}`);
+
+      // Fetch each intent's details
+      for (const intentId of intentIds) {
+        try {
+          const d = await intentVault.getIntent(intentId);
+
+          // Status codes: 0=PENDING 1=ASSIGNED 2=PLAN_SUBMITTED 3=APPROVED
+          //               4=EXECUTING 5=AWAITING_CONFIRMATION 6=COMPLETED 7=FAILED 8=CANCELLED 9=EXPIRED
+          const status = Number(d.status);
+          if (status === 7 || status === 8 || status === 9) continue; // skip terminal failures
+
+          const depositedAmountWei = d.amount.toString();
+          const depositedAmount = (parseFloat(depositedAmountWei) / 1e18).toString();
+          const startedAt = Number(d.createdAt) * 1000;
+          const daysSinceStart = Math.max(0, (Date.now() - startedAt) / (1000 * 60 * 60 * 24));
+
+          // Estimate accrued yield (mock APY since no real protocol on testnet)
+          const estimatedApyBps = 1000; // 10% APY estimate
+          const accruedValue = (parseFloat(depositedAmount) * estimatedApyBps / 10000 * daysSinceStart / 365).toString();
+          const currentValue = (parseFloat(depositedAmount) + parseFloat(accruedValue)).toString();
+
+          const statusLabel = ['PENDING', 'ASSIGNED', 'PLAN_SUBMITTED', 'APPROVED', 'EXECUTING',
+            'AWAITING_CONFIRMATION', 'COMPLETED', 'FAILED', 'CANCELLED', 'EXPIRED'][status] || `STATUS_${status}`;
+
+          positions.push({
+            intentId: Number(intentId),
+            protocol: statusLabel === 'COMPLETED' ? 'Completed Strategy' : 'Active Strategy',
+            chain: 'Polkadot Hub Testnet (Paseo)',
+            asset: 'PAS',
+            depositedAmount,
+            currentValue,
+            apyBps: estimatedApyBps,
+            accruedValue,
+            startedAt,
+          });
+        } catch (err) {
+          this.logger.warn(`Failed to fetch intent ${intentId}:`, err);
+        }
+      }
+
+      return positions;
+    } catch (error) {
+      this.logger.error('Yield positions error:', error);
+      return [];
     }
+  }
 
   private async getDotPriceUsd(): Promise<number> {
     try {

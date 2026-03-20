@@ -17,7 +17,7 @@ export interface Portfolio {
 export interface Balance {
   asset: string;
   chain: string;
-  amount: string;
+  balance: string;
   valueUsd: number;
 }
 

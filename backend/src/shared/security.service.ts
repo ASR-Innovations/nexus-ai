@@ -67,8 +67,8 @@ export class SecurityService {
   // Reputation Validation
   async validateAgentReputation(agentAddress: string, minThreshold: number = 3000): Promise<boolean> {
     try {
-      const reputation = await this.contractService.getAgentReputationScore(agentAddress);
-      return reputation >= minThreshold;
+      const reputation = await this.contractService.getAgentReputation(agentAddress);
+      return Number(reputation) >= minThreshold;
     } catch (error) {
       this.logger.error(`Failed to validate reputation for agent ${agentAddress}:`, error);
       return false;

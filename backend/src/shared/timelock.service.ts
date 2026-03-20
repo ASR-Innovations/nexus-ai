@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseProvider } from './database.provider';
-import { TimelockOperation, TimelockStatus } from './types/contract.types';
+import { TimelockOperation, TimelockStatus } from './types/timelock.types';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
@@ -63,7 +63,9 @@ export class TimelockService {
       executeAt: row.execute_at,
       parameters: JSON.parse(row.parameters),
       status: row.status,
-      createdBy: row.created_by
+      createdBy: row.created_by,
+      created_at: row.created_at,
+      updated_at: row.updated_at
     };
   }
 

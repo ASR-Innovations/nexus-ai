@@ -71,6 +71,11 @@ export class RpcConnectionPoolService implements OnModuleDestroy {
   // ============================================================================
 
   private initializeEndpoints(): void {
+    // Polkadot Hub Testnet (Paseo) - PRIMARY TESTNET
+    this.rpcEndpoints.set(420420417, [
+      'https://eth-rpc-testnet.polkadot.io/',
+    ]);
+
     // Moonbase Alpha (testnet)
     this.rpcEndpoints.set(1287, [
       'https://rpc.api.moonbase.moonbeam.network',

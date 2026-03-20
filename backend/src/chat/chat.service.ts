@@ -6,7 +6,7 @@ import { RequestDeduplicationService } from '../shared/services/request-deduplic
 import { createHash } from 'crypto';
 import { z } from 'zod';
 import { IntentParams, ParseResult, RiskAssessment, Strategy } from '../shared/types';
-// import { StrategyService } from '../strategy/strategy.service';
+import { StrategyService } from '../strategy/strategy.service';
 
 @Injectable()
 export class ChatService {
@@ -15,7 +15,7 @@ export class ChatService {
   private deepseekReasoner: OpenAI;
   private mem0Client: any; // TODO: Add proper typing when mem0ai package is available
 
-  // Zod schema for IntentParams validation
+  // Zod schema for IntentParams validation (without deadline - we add it after validation)
   private readonly intentParamsSchema = z.object({
     action: z.enum(['yield', 'swap', 'stake', 'lend', 'transfer', 'bridge']),
     asset: z.string().min(1),
@@ -23,8 +23,6 @@ export class ChatService {
     riskTolerance: z.enum(['low', 'medium', 'high']),
     minYieldBps: z.number().min(0).max(10000).optional(),
     maxLockDays: z.number().min(0).optional(),
-    deadline: z.number().min(Date.now() / 1000),
-    confidence: z.number().min(0).max(100),
   });
 
   // Zod schema for RiskAssessment validation
@@ -55,7 +53,7 @@ export class ChatService {
           },
           amount: { 
             type: "string",
-            description: "The amount to invest/trade as a string"
+            description: "The amount to invest/trade as a string. Extract the EXACT number from the user's message (e.g., '100 DOT' → '100', '50 USDC' → '50'). NEVER use '0' unless the user explicitly says zero."
           },
           riskTolerance: { 
             type: "string", 
@@ -74,7 +72,7 @@ export class ChatService {
             type: "number", 
             minimum: 0, 
             maximum: 100,
-            description: "Confidence level in the parsing (0-100)"
+            description: "Confidence level in the parsing (0-100). Set < 60 if any required information is missing or unclear."
           }
         },
         required: ["action", "asset", "amount", "riskTolerance", "confidence"]
@@ -86,19 +84,29 @@ export class ChatService {
     private configService: ConfigService,
     private cacheService: CacheService,
     private requestDeduplicationService: RequestDeduplicationService,
-    // private strategyService: StrategyService,
+    private strategyService: StrategyService,
   ) {
+    // Get API key and log for debugging
+    const deepseekApiKey = this.configService.get('DEEPSEEK_API_KEY');
+    this.logger.log(`Initializing ChatService with DeepSeek API key: ${deepseekApiKey ? `${deepseekApiKey.substring(0, 10)}...` : 'NOT SET'}`);
+    
+    if (!deepseekApiKey || deepseekApiKey === 'your_deepseek_api_key_here') {
+      this.logger.error('DEEPSEEK_API_KEY is not properly configured in environment variables');
+    }
+
     // Initialize DeepSeek API client for chat
     this.openai = new OpenAI({
-      apiKey: this.configService.get('DEEPSEEK_API_KEY'),
+      apiKey: deepseekApiKey,
       baseURL: 'https://api.deepseek.com',
     });
 
     // Initialize DeepSeek API client for reasoning (risk assessment)
     this.deepseekReasoner = new OpenAI({
-      apiKey: this.configService.get('DEEPSEEK_API_KEY'),
+      apiKey: deepseekApiKey,
       baseURL: 'https://api.deepseek.com',
     });
+
+    this.logger.log('DeepSeek API clients initialized');
 
     // Initialize Mem0 client
     try {
@@ -168,19 +176,51 @@ export class ChatService {
       let strategies: Strategy[] = [];
       if (parseResult.intentParams) {
         try {
-          // TODO: Re-enable when strategy service is fixed
-          // strategies = await this.strategyService.computeStrategies(parseResult.intentParams);
+          const strategyResult = await this.strategyService.computeStrategies(parseResult.intentParams);
+          strategies = strategyResult.strategies;
           
-          // Generate explanations and risk assessments for each strategy
-          // for (const strategy of strategies) {
-          //   // Generate AI explanation
-          //   strategy.explanation = await this.explainStrategy(strategy);
-          //   
-          //   // Generate AI risk assessment
-          //   strategy.riskAssessment = await this.assessRisk(strategy);
-          // }
-
           this.logger.log(`Generated ${strategies.length} strategies for user ${userId}`);
+          
+          // Generate explanations and risk assessments for each strategy (non-blocking, with fallbacks)
+          for (const strategy of strategies) {
+            try {
+              // Generate AI explanation with timeout
+              strategy.explanation = await Promise.race([
+                this.explainStrategy(strategy),
+                new Promise<string>((_, reject) => 
+                  setTimeout(() => reject(new Error('Explanation timeout')), 5000)
+                )
+              ]).catch(() => {
+                // Fallback explanation
+                return `This strategy uses ${strategy.protocol} on ${strategy.chain} to earn approximately ${(strategy.estimatedApyBps / 100).toFixed(2)}% APY with ${strategy.riskLevel} risk.`;
+              });
+              
+              // Generate AI risk assessment with timeout
+              strategy.riskAssessment = await Promise.race([
+                this.assessRisk(strategy),
+                new Promise<RiskAssessment>((_, reject) => 
+                  setTimeout(() => reject(new Error('Risk assessment timeout')), 5000)
+                )
+              ]).catch(() => {
+                // Fallback risk assessment
+                const fallbackScore = this.calculateFallbackRiskScore(strategy);
+                return {
+                  overallScore: fallbackScore,
+                  factors: [
+                    { name: 'Protocol Risk', score: fallbackScore, reason: 'Based on protocol maturity' },
+                    { name: 'Lock Period Risk', score: Math.min(strategy.lockDays * 2, 100), reason: `${strategy.lockDays} day lock` }
+                  ],
+                  recommendations: ['Monitor protocol developments', 'Consider position sizing'],
+                  warnings: this.generateRiskWarnings(fallbackScore, ['Protocol Risk']),
+                  confidence: 50
+                };
+              });
+            } catch (error) {
+              this.logger.warn(`Failed to generate AI content for strategy ${strategy.protocol}:`, error);
+              // Strategy will use fallback values set above
+            }
+          }
+
         } catch (error) {
           this.logger.error('Failed to compute strategies:', error);
           strategies = [];
@@ -213,6 +253,17 @@ export class ChatService {
 
   async parseIntent(message: string, userId: string): Promise<ParseResult> {
     try {
+      // Check if DeepSeek API key is configured
+      const apiKey = this.configService.get('DEEPSEEK_API_KEY');
+      if (!apiKey || apiKey === 'your_deepseek_api_key_here') {
+        this.logger.error('DEEPSEEK_API_KEY is not configured or is using default value');
+        return {
+          success: false,
+          confidence: 0,
+          clarificationQuestion: 'AI service is not configured. Please contact support.',
+        };
+      }
+
       // 1. Retrieve user memories from Mem0 before parsing
       const memories = await this.searchMemories(userId, message, 5);
       
@@ -223,26 +274,46 @@ export class ChatService {
 
       const systemPrompt = `You are a DeFi AI assistant for the Polkadot ecosystem. Parse user messages into structured financial intents.
 
+CRITICAL AMOUNT PARSING RULE:
+When you see a number followed by an asset name (like "100 DOT" or "50 USDC"), you MUST extract that exact number as the amount string.
+Example: "I want to earn yield on 100 DOT" → amount MUST be "100", NOT "0"
+Example: "stake 50 USDC" → amount MUST be "50", NOT "0"
+
 Key Guidelines:
 - Extract the financial action (yield, swap, stake, lend, transfer, bridge)
 - Identify the asset symbol (DOT, USDC, ETH, etc.)
-- Parse the amount (convert words like "hundred" to numbers)
+- Parse the amount EXACTLY as the number that appears before the asset name
+- NEVER use "0" as amount when a number is present in the message
+- If truly no amount is mentioned, set confidence < 60
 - Determine risk tolerance from context (conservative=low, balanced=medium, aggressive=high)
-- Set confidence based on how clear the intent is (0-100)
-- If information is missing or ambiguous, set confidence < 60
+
+Amount Parsing Examples:
+- "I want to earn yield on 100 DOT" → amount: "100"
+- "earn yield on 50 USDC" → amount: "50"
+- "stake 1000 tokens" → amount: "1000"
+- "swap 25 ETH" → amount: "25"
+- "I want to earn yield on 10 PAS" → amount: "10"
+- "I want to stake DOT" (no number) → amount: "0", confidence: 50
 
 Risk Tolerance Mapping:
 - "safe", "conservative", "low risk" → low
-- "balanced", "moderate", "medium risk" → medium  
+- "balanced", "moderate", "medium risk" → medium
 - "aggressive", "high yield", "high risk" → high
 
 Asset Mapping:
 - "DOT", "Polkadot" → DOT
+- "PAS", "Paseo", "Paseo token" → PAS
 - "USDC", "USD Coin" → USDC
-- "ETH", "Ethereum" → ETH${memoryContext}`;
+- "ETH", "Ethereum" → ETH
 
-      // 3. Call DeepSeek with function calling in strict mode (with deduplication)
+Network Context:
+- This app runs on Polkadot Hub Testnet (Paseo). PAS is the native testnet token.
+- When users mention "PAS" treat it the same as DOT for strategy purposes.${memoryContext}`;
+
+      // 3. Call DeepSeek with function calling (with deduplication)
       const deduplicationKey = `deepseek:parse:${this.createQueryHash(message, userId, systemPrompt)}`;
+      
+      this.logger.log(`Calling DeepSeek API for message: "${message}"`);
       
       const response = await this.requestDeduplicationService.deduplicate(
         deduplicationKey,
@@ -254,26 +325,56 @@ Asset Mapping:
               { role: 'user', content: message }
             ],
             tools: [this.intentParsingTool],
-            tool_choice: { type: 'function', function: { name: 'parse_intent' } },
+            tool_choice: 'required', // Force the model to use the tool
             temperature: 0.1,
           });
         },
         { ttl: 60 } // 60 seconds TTL for deduplication
       );
 
+      this.logger.debug('DeepSeek response received');
+      this.logger.debug('Response structure:', JSON.stringify({
+        model: response.model,
+        finishReason: response.choices[0]?.finish_reason,
+        hasToolCalls: !!response.choices[0]?.message?.tool_calls,
+        toolCallsCount: response.choices[0]?.message?.tool_calls?.length || 0,
+      }, null, 2));
+
       const toolCall = response.choices[0]?.message?.tool_calls?.[0];
       if (!toolCall || toolCall.function.name !== 'parse_intent') {
-        throw new Error('No valid tool call received from DeepSeek');
+        this.logger.error('No valid tool call received from DeepSeek');
+        this.logger.error('Full message:', JSON.stringify(response.choices[0]?.message, null, 2));
+        return {
+          success: false,
+          confidence: 0,
+          clarificationQuestion: 'AI service did not return a valid response. Please try rephrasing your message.',
+        };
       }
 
+      this.logger.debug(`Tool call received: ${toolCall.function.name}`);
+      
       const parsedArgs = JSON.parse(toolCall.function.arguments);
+      this.logger.log('Parsed intent arguments:', JSON.stringify(parsedArgs, null, 2));
+      
       const confidence = parsedArgs.confidence || 0;
       
-      // 4. Validate response against IntentParams schema
+      // CRITICAL: Check if amount is "0" but message contains a number
+      if (parsedArgs.amount === "0" || parsedArgs.amount === 0) {
+        const numberMatch = message.match(/\b(\d+)\s*(DOT|USDC|ETH|USD|tokens?)\b/i);
+        if (numberMatch) {
+          this.logger.warn(`DeepSeek returned amount="0" but message contains number: ${numberMatch[1]}`);
+          this.logger.warn(`Overriding amount to: ${numberMatch[1]}`);
+          parsedArgs.amount = numberMatch[1];
+        }
+      }
+      
+      // 4. Validate response against IntentParams schema (without deadline and confidence)
       const validationResult = this.intentParamsSchema.safeParse(parsedArgs);
       
       if (!validationResult.success) {
-        this.logger.warn('Intent parsing validation failed:', validationResult.error);
+        this.logger.warn('Intent parsing validation failed');
+        this.logger.warn('Validation errors:', JSON.stringify(validationResult.error.errors, null, 2));
+        this.logger.warn('Parsed args that failed validation:', JSON.stringify(parsedArgs, null, 2));
         return {
           success: false,
           confidence: 0,
@@ -281,14 +382,24 @@ Asset Mapping:
         };
       }
 
+      // Add deadline after validation (it's not part of the AI response)
       const intentParams: IntentParams = {
         ...validationResult.data,
         deadline: Math.floor(Date.now() / 1000) + (24 * 60 * 60), // Default 24 hours from now
       };
 
+      this.logger.log('Intent parsed successfully:', JSON.stringify({
+        action: intentParams.action,
+        asset: intentParams.asset,
+        amount: intentParams.amount,
+        riskTolerance: intentParams.riskTolerance,
+        confidence: confidence,
+      }));
+
       // 5. Return clarification question if confidence < 60
       if (confidence < 60) {
         const clarificationQuestion = this.generateClarificationQuestion(intentParams);
+        this.logger.log(`Low confidence (${confidence}), requesting clarification`);
         return {
           success: false,
           confidence: 40, // Low confidence when clarification needed
@@ -313,6 +424,9 @@ Asset Mapping:
 
     } catch (error) {
       this.logger.error('Intent parsing error:', error);
+      if (error instanceof Error) {
+        this.logger.error('Error stack:', error.stack);
+      }
       return {
         success: false,
         confidence: 0,

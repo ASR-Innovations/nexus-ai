@@ -36,8 +36,8 @@ export class WalletManagerService implements OnModuleInit {
   private readonly logger = new Logger(WalletManagerService.name);
 
   // EVM wallets
-  private evmWallets: Map<string, ethers.Wallet> = new Map();
-  private defaultEvmWallet?: ethers.Wallet;
+  private evmWallets: Map<string, ethers.HDNodeWallet> = new Map();
+  private defaultEvmWallet?: ethers.HDNodeWallet;
 
   // Substrate wallets
   private substrateKeyring?: Keyring;
@@ -97,7 +97,9 @@ export class WalletManagerService implements OnModuleInit {
 
   private async initializeEVMWalletFromPrivateKey(privateKey: string): Promise<void> {
     try {
-      const wallet = new ethers.Wallet(privateKey);
+      // Use HDNodeWallet.fromPhrase with a mnemonic, or cast Wallet to HDNodeWallet
+      // Since we're using a private key, we'll cast to HDNodeWallet
+      const wallet = new ethers.Wallet(privateKey) as unknown as ethers.HDNodeWallet;
       this.defaultEvmWallet = wallet;
       this.evmWallets.set('default', wallet);
 
@@ -159,7 +161,7 @@ export class WalletManagerService implements OnModuleInit {
   // EVM Wallet Operations
   // ============================================================================
 
-  getEVMWallet(provider?: ethers.Provider): ethers.Wallet {
+  getEVMWallet(provider?: ethers.Provider): ethers.HDNodeWallet {
     if (!this.defaultEvmWallet) {
       throw new Error('No EVM wallet initialized');
     }
@@ -334,7 +336,7 @@ export class WalletManagerService implements OnModuleInit {
 
   async addEVMWallet(privateKey: string, walletId: string): Promise<string> {
     try {
-      const wallet = new ethers.Wallet(privateKey);
+      const wallet = new ethers.Wallet(privateKey) as unknown as ethers.HDNodeWallet;
       this.evmWallets.set(walletId, wallet);
 
       this.logger.log('EVM wallet added', {

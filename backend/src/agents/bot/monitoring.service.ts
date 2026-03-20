@@ -256,7 +256,7 @@ export class MonitoringService {
         [limit]
       );
 
-      return result.rows.map(row => ({
+      return result.rows.map((row: any) => ({
         intentId: row.intent_id,
         status: row.status,
         startTime: new Date(row.created_at),

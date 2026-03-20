@@ -12,9 +12,11 @@ export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navItems = [
-    { href: "/", label: "Chat" },
+    { href: "/", label: "Home" },
+    { href: "/chat", label: "Chat" },
     { href: "/portfolio", label: "Portfolio" },
     { href: "/agents", label: "Agents" },
+    { href: "/bot", label: "Bot Dashboard" },
   ];
 
   return (

@@ -2,7 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CacheService, CacheKeys } from '../shared/cache.service';
 import { CircuitBreakerService } from '../shared/circuit-breaker.service';
-import { IntentParams, Strategy, ExecutionPlan, RiskAssessment } from '../shared/types';
+import { ContractService } from '../shared/contract.service';
+import { IntentParams, Strategy, ExecutionPlan } from '../shared/types';
 import { YieldData } from './strategy.dto';
 
 export interface StrategyComputeResult {
@@ -19,6 +20,7 @@ export class StrategyService {
     private configService: ConfigService,
     private cacheService: CacheService,
     private circuitBreakerService: CircuitBreakerService,
+    private contractService: ContractService,
   ) {}
 
   async computeStrategies(intentParams: IntentParams): Promise<StrategyComputeResult> {
@@ -128,8 +130,12 @@ export class StrategyService {
       return { data: this.getMockHydrationData(asset), usedFallback: true };
     }
 
-    if (asset.toLowerCase() !== 'dot') {
+    if (asset.toLowerCase() !== 'dot' && asset.toLowerCase() !== 'pas') {
       return { data: [], usedFallback: false };
+    }
+
+    if (asset.toLowerCase() === 'pas') {
+      return this.getPasAgentStrategies(asset, 'conservative');
     }
 
     // Use circuit breaker for API call
@@ -182,13 +188,93 @@ export class StrategyService {
     };
   }
 
+  private async getPasAgentStrategies(
+    asset: string,
+    tier: 'conservative' | 'liquid-staking' | 'high-yield',
+  ): Promise<{ data: YieldData[]; usedFallback: boolean }> {
+    const PASEO_CHAIN = 'Polkadot Hub Testnet (Paseo)';
+    const tierConfig: Record<string, { apyBps: number; lockDays: number; riskLevel: 'low' | 'medium' | 'high'; name: string }> = {
+      'conservative': { apyBps: 800,  lockDays: 0,  riskLevel: 'low',    name: 'Conservative Yield Agent' },
+      'liquid-staking': { apyBps: 1000, lockDays: 14, riskLevel: 'low',    name: 'Liquid Staking Agent' },
+      'high-yield':   { apyBps: 1500, lockDays: 0,  riskLevel: 'medium', name: 'High Yield Agent' },
+    };
+    const cfg = tierConfig[tier];
+
+    try {
+      const agentRegistry = this.contractService.getAgentRegistryContract();
+      const topAddresses: string[] = await agentRegistry.getTopAgents(5);
+
+      const agentData: Array<{
+        stakeAmount: bigint; reputationScore: bigint;
+        successCount: bigint; failCount: bigint;
+        totalExecutions: bigint; isActive: boolean;
+      }> = [];
+
+      for (const addr of topAddresses) {
+        try {
+          const a = await agentRegistry.getAgent(addr);
+          if (a.isActive) agentData.push(a);
+        } catch { /* skip inactive/errored agents */ }
+      }
+
+      if (agentData.length === 0) {
+        throw new Error('No active agents found');
+      }
+
+      // Pick agent most suited for this tier (highest success rate)
+      const best = agentData.sort((a, b) => {
+        const rateA = Number(a.totalExecutions) > 0 ? Number(a.successCount) / Number(a.totalExecutions) : 0;
+        const rateB = Number(b.totalExecutions) > 0 ? Number(b.successCount) / Number(b.totalExecutions) : 0;
+        return rateB - rateA;
+      })[0];
+
+      const reputationScore = Number(best.reputationScore);
+      // Adjust APY slightly based on real reputation (±20%)
+      const reputationMultiplier = Math.min(1.2, Math.max(0.8, reputationScore / 1000));
+      const adjustedApyBps = Math.round(cfg.apyBps * reputationMultiplier);
+      const stakeUsd = Number(best.stakeAmount) / 1e18 * 10; // rough $10/PAS
+
+      return {
+        data: [{
+          protocol: cfg.name,
+          chain: PASEO_CHAIN,
+          asset: asset.toUpperCase(),
+          apyBps: adjustedApyBps,
+          tvlUsd: stakeUsd,
+          lockDays: cfg.lockDays,
+          riskLevel: cfg.riskLevel,
+          auditStatus: 'audited',
+          lastUpdated: Date.now(),
+        }],
+        usedFallback: false,
+      };
+    } catch (err) {
+      this.logger.warn(`AgentRegistry query failed for ${tier} strategy, using mock:`, err);
+      return {
+        data: [{
+          protocol: cfg.name,
+          chain: PASEO_CHAIN,
+          asset: asset.toUpperCase(),
+          apyBps: cfg.apyBps,
+          tvlUsd: 0,
+          lockDays: cfg.lockDays,
+          riskLevel: cfg.riskLevel,
+          auditStatus: 'audited',
+          lastUpdated: Date.now(),
+        }],
+        usedFallback: true,
+      };
+    }
+  }
+
   private getMockHydrationData(asset: string): YieldData[] {
-    if (asset.toLowerCase() === 'dot') {
+    const a = asset.toLowerCase();
+    if (a === 'dot' || a === 'pas') {
       return [
         {
           protocol: 'Hydration',
           chain: 'Hydration',
-          asset: 'DOT',
+          asset: asset.toUpperCase(),
           apyBps: 1200, // 12% APY
           tvlUsd: 50_000_000,
           lockDays: 0,
@@ -199,7 +285,7 @@ export class StrategyService {
         {
           protocol: 'Hydration Omnipool',
           chain: 'Hydration',
-          asset: 'DOT',
+          asset: asset.toUpperCase(),
           apyBps: 1500, // 15% APY
           tvlUsd: 25_000_000,
           lockDays: 0,
@@ -221,8 +307,12 @@ export class StrategyService {
       return { data: this.getMockBifrostData(asset), usedFallback: true };
     }
 
-    if (asset.toLowerCase() !== 'dot') {
+    if (asset.toLowerCase() !== 'dot' && asset.toLowerCase() !== 'pas') {
       return { data: [], usedFallback: false };
+    }
+
+    if (asset.toLowerCase() === 'pas') {
+      return this.getPasAgentStrategies(asset, 'liquid-staking');
     }
 
     // Use circuit breaker for API call
@@ -274,12 +364,13 @@ export class StrategyService {
   }
 
   private getMockBifrostData(asset: string): YieldData[] {
-    if (asset.toLowerCase() === 'dot') {
+    const a = asset.toLowerCase();
+    if (a === 'dot' || a === 'pas') {
       return [
         {
           protocol: 'Bifrost Liquid Staking',
           chain: 'Bifrost',
-          asset: 'DOT',
+          asset: asset.toUpperCase(),
           apyBps: 800, // 8% APY
           tvlUsd: 100_000_000,
           lockDays: 28,
@@ -301,8 +392,12 @@ export class StrategyService {
       return { data: this.getMockMoonbeamData(asset), usedFallback: true };
     }
 
-    if (asset.toLowerCase() !== 'dot') {
+    if (asset.toLowerCase() !== 'dot' && asset.toLowerCase() !== 'pas') {
       return { data: [], usedFallback: false };
+    }
+
+    if (asset.toLowerCase() === 'pas') {
+      return this.getPasAgentStrategies(asset, 'high-yield');
     }
 
     // Use circuit breaker for API call
@@ -358,12 +453,13 @@ export class StrategyService {
   }
 
   private getMockMoonbeamData(asset: string): YieldData[] {
-    if (asset.toLowerCase() === 'dot') {
+    const a = asset.toLowerCase();
+    if (a === 'dot' || a === 'pas') {
       return [
         {
           protocol: 'StellaSwap',
           chain: 'Moonbeam',
-          asset: 'DOT',
+          asset: asset.toUpperCase(),
           apyBps: 1000, // 10% APY
           tvlUsd: 15_000_000,
           lockDays: 7,
@@ -377,13 +473,14 @@ export class StrategyService {
   }
 
   private getMockYieldData(asset: string): YieldData[] {
-    // Fallback mock data for development
-    if (asset.toLowerCase() === 'dot') {
+    const a = asset.toLowerCase();
+    if (a === 'dot' || a === 'pas') {
+      const sym = asset.toUpperCase();
       return [
         {
           protocol: 'Hydration',
           chain: 'Hydration',
-          asset: 'DOT',
+          asset: sym,
           apyBps: 1200,
           tvlUsd: 50_000_000,
           lockDays: 0,
@@ -394,7 +491,7 @@ export class StrategyService {
         {
           protocol: 'Bifrost Liquid Staking',
           chain: 'Bifrost',
-          asset: 'DOT',
+          asset: sym,
           apyBps: 800,
           tvlUsd: 100_000_000,
           lockDays: 28,
@@ -405,7 +502,7 @@ export class StrategyService {
         {
           protocol: 'StellaSwap',
           chain: 'Moonbeam',
-          asset: 'DOT',
+          asset: sym,
           apyBps: 1000,
           tvlUsd: 15_000_000,
           lockDays: 7,
@@ -505,14 +602,15 @@ export class StrategyService {
     return Math.min(score / 3, 100); // Average and cap at 100
   }
 
-  private estimateGasCosts(protocol: string, chain: string): number {
+  private estimateGasCosts(_protocol: string, chain: string): number {
     // Rough gas cost estimates in USD
     const gasEstimates: Record<string, number> = {
       'Hydration': 2,
       'Bifrost': 3,
       'Moonbeam': 5,
+      'Polkadot Hub Testnet (Paseo)': 1,
     };
-    return gasEstimates[chain] || 5;
+    return gasEstimates[chain] ?? 5;
   }
 
   private calculateNetApy(grossApyBps: number, gasUsd: number, amountUsd: number): number {
@@ -613,8 +711,9 @@ export class StrategyService {
   private generateExecutionPlan(data: YieldData): ExecutionPlan {
     const steps = [];
     
-    // Step 1: Bridge to target chain (if needed)
-    if (data.chain !== 'Polkadot Hub') {
+    // Step 1: Bridge to target chain (if needed — not required for Paseo-native strategies)
+    const isPaseo = data.chain === 'Polkadot Hub Testnet (Paseo)' || data.chain === 'Polkadot Hub';
+    if (!isPaseo) {
       steps.push({
         destinationParaId: this.getParaId(data.chain),
         targetContract: '0x0000000000000000000000000000000000000000', // XCM precompile
@@ -645,8 +744,9 @@ export class StrategyService {
       'Bifrost': 2030,
       'Moonbeam': 2004,
       'Polkadot Hub': 1000,
+      'Polkadot Hub Testnet (Paseo)': 1000,
     };
-    return paraIds[chain] || 1000;
+    return paraIds[chain] ?? 1000;
   }
 
   private generateWarnings(data: YieldData): string[] {

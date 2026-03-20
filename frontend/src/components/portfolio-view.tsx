@@ -4,7 +4,7 @@ import { useWallet } from "@/hooks/use-wallet";
 import { usePortfolio } from "@/hooks/use-portfolio";
 import { BalanceCard } from "@/components/balance-card";
 import { YieldPosition } from "@/components/yield-position";
-import { PortfolioChart } from "@/components/portfolio-chart";
+import { PerformanceChart } from "@/components/portfolio/performance-chart";
 import { RefreshCw, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -145,7 +145,7 @@ export function PortfolioView() {
 
           {/* Portfolio Chart */}
           <div className="lg:col-span-3">
-            <PortfolioChart data={[]} />
+            <PerformanceChart />
           </div>
 
           {/* Balances */}

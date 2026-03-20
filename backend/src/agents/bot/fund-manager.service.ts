@@ -486,7 +486,7 @@ export class FundManagerService implements FundManager {
       const { ApiPromise, WsProvider } = await import('@polkadot/api');
       
       // Determine which chain based on token
-      let wsEndpoint = 'wss://rpc.polkadot.io';
+      let wsEndpoint = 'wss://paseo.rpc.amforc.com'; // Paseo testnet relay chain
       if (token === 'HDX') {
         wsEndpoint = 'wss://rpc.hydradx.cloud';
       } else if (token === 'BNC' || token.startsWith('v')) {
@@ -497,7 +497,7 @@ export class FundManagerService implements FundManager {
       const api = await ApiPromise.create({ provider });
 
       // Query account balance
-      const account = await api.query.system.account(address);
+      const account: any = await api.query.system.account(address);
       const balance = account.data.free.toBigInt();
 
       await api.disconnect();
@@ -719,6 +719,13 @@ export class FundManagerService implements FundManager {
     return false;
   }
 
+  private simulateTransactionHash(params: any): string {
+    // Generate a simulated transaction hash for development/testing
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 15);
+    return `0x${timestamp.toString(16)}${random}`;
+  }
+
   private async executeRealTransfer(params: TransferParams): Promise<string> {
     // Execute actual blockchain transfer
     // This would use the appropriate SDK based on the chain
@@ -834,11 +841,11 @@ export class FundManagerService implements FundManager {
 
   private getSubstrateWsUrl(chain: string): string {
     const urls: Record<string, string> = {
-      'polkadot': 'wss://rpc.polkadot.io',
+      'polkadot': 'wss://paseo.rpc.amforc.com', // Paseo testnet relay chain
       'hydration': 'wss://rpc.hydradx.cloud',
       'bifrost': 'wss://bifrost-polkadot.api.onfinality.io/public-ws',
     };
-    return urls[chain] || 'wss://rpc.polkadot.io';
+    return urls[chain] || 'wss://paseo.rpc.amforc.com';
   }
 
   private getNextResetTime(): Date {

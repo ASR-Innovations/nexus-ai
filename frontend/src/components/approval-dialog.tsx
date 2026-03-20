@@ -12,14 +12,18 @@ interface ApprovalDialogProps {
 }
 
 export function ApprovalDialog({ strategy, open, onOpenChange, onConfirm }: ApprovalDialogProps) {
-  const getRiskColor = (riskScore: number) => {
-    if (riskScore <= 30) return "text-green-600";
-    if (riskScore <= 60) return "text-yellow-600";
+  const resolvedApy = strategy.apy ?? (strategy.estimatedApyBps != null ? strategy.estimatedApyBps / 100 : 0);
+  const resolvedRisk = strategy.risk ?? strategy.riskLevel ?? 'medium';
+  const resolvedLockPeriod = strategy.lockPeriod ?? strategy.lockDays ?? 0;
+
+  const getRiskColor = (risk: 'low' | 'medium' | 'high') => {
+    if (risk === 'low') return "text-green-600";
+    if (risk === 'medium') return "text-yellow-600";
     return "text-red-600";
   };
 
-  const formatAPY = (apyBps: number) => {
-    return (apyBps / 100).toFixed(2) + "%";
+  const formatAPY = (apy: number) => {
+    return apy.toFixed(2) + "%";
   };
 
   const formatLockPeriod = (days: number) => {
@@ -59,19 +63,19 @@ export function ApprovalDialog({ strategy, open, onOpenChange, onConfirm }: Appr
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center">
                   <TrendingUp className="h-5 w-5 mx-auto mb-1 text-green-600" />
-                  <div className="font-semibold">{formatAPY(strategy.estimatedApyBps)}</div>
+                  <div className="font-semibold">{formatAPY(resolvedApy)}</div>
                   <div className="text-xs text-muted-foreground">Est. APY</div>
                 </div>
-                
+
                 <div className="text-center">
-                  <Shield className={`h-5 w-5 mx-auto mb-1 ${getRiskColor(strategy.riskScore)}`} />
-                  <div className="font-semibold">{strategy.riskScore}</div>
-                  <div className="text-xs text-muted-foreground">Risk Score</div>
+                  <Shield className={`h-5 w-5 mx-auto mb-1 ${getRiskColor(resolvedRisk)}`} />
+                  <div className="font-semibold">{resolvedRisk.charAt(0).toUpperCase() + resolvedRisk.slice(1)}</div>
+                  <div className="text-xs text-muted-foreground">Risk Level</div>
                 </div>
-                
+
                 <div className="text-center">
                   <Clock className="h-5 w-5 mx-auto mb-1" />
-                  <div className="font-semibold">{formatLockPeriod(strategy.lockDays)}</div>
+                  <div className="font-semibold">{formatLockPeriod(resolvedLockPeriod)}</div>
                   <div className="text-xs text-muted-foreground">Lock Period</div>
                 </div>
                 
@@ -84,18 +88,18 @@ export function ApprovalDialog({ strategy, open, onOpenChange, onConfirm }: Appr
             </div>
 
             {/* Risk Warnings */}
-            {strategy.riskScore > 30 && (
+            {resolvedRisk !== 'low' && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                 <div className="flex items-start gap-3">
                   <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5" />
                   <div>
                     <h4 className="font-medium text-yellow-800 mb-2">Risk Warning</h4>
                     <ul className="text-sm text-yellow-700 space-y-1">
-                      {strategy.riskScore > 60 && (
+                      {resolvedRisk === 'high' && (
                         <li>• This is a high-risk strategy that could result in significant losses</li>
                       )}
-                      {strategy.lockDays > 0 && (
-                        <li>• Your funds will be locked for {formatLockPeriod(strategy.lockDays)}</li>
+                      {resolvedLockPeriod > 0 && (
+                        <li>• Your funds will be locked for {formatLockPeriod(resolvedLockPeriod)}</li>
                       )}
                       {strategy.cons.map((con, index) => (
                         <li key={index}>• {con}</li>
@@ -111,7 +115,7 @@ export function ApprovalDialog({ strategy, open, onOpenChange, onConfirm }: Appr
               <h4 className="font-medium mb-3">Execution Steps</h4>
               <div className="bg-muted/30 rounded-lg p-4">
                 <div className="space-y-2 text-sm">
-                  {strategy.executionPlan.steps.map((step, index) => (
+                  {(strategy.executionPlan?.steps ?? []).map((step, index) => (
                     <div key={index} className="flex items-center gap-3">
                       <div className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-medium">
                         {index + 1}

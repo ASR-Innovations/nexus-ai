@@ -114,6 +114,22 @@ export class CacheKeys {
   static tokenPrice(symbol: string): string {
     return `price:${symbol.toLowerCase()}`;
   }
+
+  // Static Data (TTL: 300s)
+  static staticData(type?: string, identifier?: string): string {
+    if (type && identifier) {
+      return `static:${type}:${identifier.toLowerCase()}`;
+    }
+    return 'static:data';
+  }
+
+  // Yield Data Cache (TTL: 120s)
+  static yieldData(asset?: string): string {
+    if (asset) {
+      return `yields:${asset.toLowerCase()}`;
+    }
+    return 'yields:data';
+  }
 }
 
 export interface CacheOptions {

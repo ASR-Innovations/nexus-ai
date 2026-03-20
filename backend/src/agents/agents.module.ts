@@ -20,6 +20,11 @@ import { FundManagerService } from './bot/fund-manager.service';
 import { XCMExecutorService } from './bot/xcm-executor.service';
 import { CallDataEncoderService } from './bot/call-data-encoder.service';
 import { ErrorHandlingService } from './bot/error-handling.service';
+import { ProtocolCacheService } from './bot/protocol-cache.service';
+import { ProductionBotService } from './bot/production-bot.service';
+import { ExecutionQueueService } from './bot/execution-queue.service';
+import { RpcConnectionPoolService } from './bot/rpc-connection-pool.service';
+import { BatchProcessorService } from './bot/batch-processor.service';
 
 @Module({
   imports: [
@@ -39,6 +44,7 @@ import { ErrorHandlingService } from './bot/error-handling.service';
     FundManagerService,
     XCMExecutorService,
     CallDataEncoderService,
+    ProtocolCacheService,
     // Bot services
     AgentBotService,
     MonitoringService,
@@ -48,6 +54,10 @@ import { ErrorHandlingService } from './bot/error-handling.service';
     ErrorHandlingService,
     RealProtocolIntegrationService,
     DashboardService,
+    ProductionBotService,
+    ExecutionQueueService,
+    RpcConnectionPoolService,
+    BatchProcessorService,
   ],
   exports: [
     AgentsService,
@@ -57,6 +67,7 @@ import { ErrorHandlingService } from './bot/error-handling.service';
     FundManagerService,
     XCMExecutorService,
     CallDataEncoderService,
+    ProtocolCacheService,
     // Export bot services
     AgentBotService,
     MonitoringService,
@@ -66,6 +77,7 @@ import { ErrorHandlingService } from './bot/error-handling.service';
     ErrorHandlingService,
     RealProtocolIntegrationService,
     DashboardService,
+    ProductionBotService,
   ],
 })
 export class AgentsModule {}

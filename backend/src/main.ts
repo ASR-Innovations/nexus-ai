@@ -23,6 +23,9 @@ async function bootstrap() {
   // Global exception filter
   app.useGlobalFilters(new AllExceptionsFilter());
   
+  // Global API prefix
+  app.setGlobalPrefix('api');
+  
   // Global validation pipe
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,

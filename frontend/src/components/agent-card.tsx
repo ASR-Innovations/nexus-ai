@@ -16,11 +16,11 @@ export function AgentCard({ agent, className }: AgentCardProps) {
 
   const formatStakeAmount = (amount: string) => {
     const num = parseFloat(amount);
-    if (num === 0) return "0 DOT";
-    if (num < 1) return `${num.toFixed(6)} DOT`;
-    if (num < 1000) return `${num.toFixed(3)} DOT`;
-    if (num < 1000000) return `${(num / 1000).toFixed(1)}K DOT`;
-    return `${(num / 1000000).toFixed(1)}M DOT`;
+    if (num === 0) return "0 PAS";
+    if (num < 1) return `${num.toFixed(6)} PAS`;
+    if (num < 1000) return `${num.toFixed(3)} PAS`;
+    if (num < 1000000) return `${(num / 1000).toFixed(1)}K PAS`;
+    return `${(num / 1000000).toFixed(1)}M PAS`;
   };
 
   const getSuccessRate = () => {

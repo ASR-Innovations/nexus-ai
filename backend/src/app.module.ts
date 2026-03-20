@@ -6,13 +6,13 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import Redis from 'ioredis';
 
+import { AuthModule } from './auth/auth.module';
 import { ChatModule } from './chat/chat.module';
 import { IntentModule } from './intent/intent.module';
 import { PortfolioModule } from './portfolio/portfolio.module';
 import { AgentsModule } from './agents/agents.module';
 import { AgentBotModule } from './agents/bot/agent-bot.module';
-// import { YieldsModule } from './yields/yields.module'; // Temporarily disabled due to compilation errors
-// import { StrategyModule } from './strategy/strategy.module'; // Temporarily disabled due to yields dependency
+import { StrategyModule } from './strategy/strategy.module';
 import { ExecutionModule } from './execution/execution.module';
 import { IndexerModule } from './indexer/indexer.module';
 import { WebsocketModule } from './websocket/websocket.module';
@@ -79,13 +79,13 @@ import { WalletThrottlerGuard } from './shared/guards/wallet-throttler.guard';
     SharedModule,
     
     // Feature modules
+    AuthModule,
     ChatModule,
     IntentModule,
     PortfolioModule,
     AgentsModule,
     AgentBotModule,
-    // YieldsModule, // Temporarily disabled due to compilation errors
-    // StrategyModule, // Temporarily disabled due to yields dependency
+    StrategyModule,
     ExecutionModule,
     IndexerModule,
     WebsocketModule,

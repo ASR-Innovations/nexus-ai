@@ -23,7 +23,7 @@ exports.up = (pgm) => {
   // Insert chains
   pgm.sql(`
     INSERT INTO chains (name, para_id, rpc_url, ws_url, native_token, is_testnet) VALUES
-    ('Polkadot Asset Hub', 1000, 'https://polkadot-asset-hub-rpc.polkadot.io', 'wss://polkadot-asset-hub-rpc.polkadot.io', 'DOT', false),
+    ('Polkadot Hub Testnet (Paseo)', 1000, 'https://eth-rpc-testnet.polkadot.io/', 'wss://asset-hub-paseo-rpc.dwellir.com', 'PAS', true),
     ('Hydration', 2034, 'https://rpc.hydradx.cloud', 'wss://rpc.hydradx.cloud', 'HDX', false),
     ('Bifrost', 2030, 'https://hk.p.bifrost-rpc.liebi.com/ws', 'wss://bifrost-polkadot.api.onfinality.io/public-ws', 'BNC', false),
     ('Moonbeam', 2004, 'https://rpc.api.moonbeam.network', 'wss://wss.api.moonbeam.network', 'GLMR', false),

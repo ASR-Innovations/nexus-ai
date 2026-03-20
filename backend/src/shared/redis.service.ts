@@ -139,4 +139,8 @@ export class RedisService {
     const result = await this.redis.sismember(key, member);
     return result === 1;
   }
+
+  async ping(): Promise<string> {
+    return this.redis.ping();
+  }
 }

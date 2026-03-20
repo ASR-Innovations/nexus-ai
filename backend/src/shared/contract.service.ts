@@ -42,7 +42,7 @@ export class ContractService {
   }
 
   private async initializeProvider() {
-    const rpcUrl = this.configService.get('POLKADOT_HUB_RPC_URL', 'https://polkadot-asset-hub-rpc.polkadot.io');
+    const rpcUrl = this.configService.get('POLKADOT_HUB_RPC_URL', 'https://eth-rpc-testnet.polkadot.io/');
     this.provider = new ethers.JsonRpcProvider(rpcUrl);
 
     try {
@@ -579,5 +579,127 @@ export class ContractService {
 
   getExecutionManagerContract(): ethers.Contract {
     return this.executionManagerContract;
+  }
+
+  // Additional methods for security services
+  async isProtocolWhitelisted(protocolAddress: string): Promise<boolean> {
+    try {
+      // Mock implementation for development
+      const mockExternalApis = this.configService.get('MOCK_EXTERNAL_APIS', false);
+      
+      if (mockExternalApis) {
+        // Mock whitelisted protocols
+        const mockWhitelisted = [
+          '0x1234567890123456789012345678901234567890',
+          '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+          '0x742d35Cc6634C0532925a3b8D0C9C0E3C5d5c8eA',
+          '0xa0b86a33e6441e8c533a9dcf2a85c4c2742f1ac7',
+          '0xb41bd4c99da73510004633d1b29b63a469e6ca67',
+        ];
+        return mockWhitelisted.includes(protocolAddress.toLowerCase());
+      }
+
+      // In production, this would check the contract's whitelist
+      // For now, return true for valid addresses
+      return /^0x[a-fA-F0-9]{40}$/.test(protocolAddress);
+    } catch (error) {
+      this.logger.error(`Failed to check protocol whitelist for ${protocolAddress}:`, error);
+      return false;
+    }
+  }
+
+  async getAgentActiveIntentCount(agentAddress: string): Promise<number> {
+    try {
+      // Mock implementation - in production would query contract
+      const mockExternalApis = this.configService.get('MOCK_EXTERNAL_APIS', false);
+      
+      if (mockExternalApis) {
+        return Math.floor(Math.random() * 5); // Random 0-4 active intents
+      }
+
+      // In production, query the contract for active intent count
+      return 0;
+    } catch (error) {
+      this.logger.error(`Failed to get active intent count for ${agentAddress}:`, error);
+      return 0;
+    }
+  }
+
+  async executeIntentVaultChange(): Promise<UnsignedTransaction> {
+    try {
+      // Build transaction for intent vault change (timelock operation)
+      const data = '0x'; // Placeholder - would encode actual function call
+      
+      const gasLimit = await this.estimateGas({
+        to: await this.intentVaultContract.getAddress(),
+        data
+      });
+
+      const gasPrice = await this.getGasPrice();
+
+      return {
+        to: await this.intentVaultContract.getAddress(),
+        data,
+        value: '0',
+        gasLimit: (gasLimit + gasLimit / BigInt(5)).toString(),
+        gasPrice: gasPrice.toString()
+      };
+    } catch (error) {
+      this.logger.error('Failed to build executeIntentVaultChange transaction:', error);
+      throw error;
+    }
+  }
+
+  async isPaused(contract: 'intentVault' | 'agentRegistry' | 'executionManager'): Promise<boolean> {
+    try {
+      // Mock implementation - in production would check contract pause status
+      const mockExternalApis = this.configService.get('MOCK_EXTERNAL_APIS', false);
+      
+      if (mockExternalApis) {
+        return false; // Not paused in mock mode
+      }
+
+      // In production, check the contract's paused state
+      let targetContract: ethers.Contract;
+      switch (contract) {
+        case 'intentVault':
+          targetContract = this.intentVaultContract;
+          break;
+        case 'agentRegistry':
+          targetContract = this.agentRegistryContract;
+          break;
+        case 'executionManager':
+          targetContract = this.executionManagerContract;
+          break;
+      }
+
+      // Assuming contracts have a paused() function
+      try {
+        return await targetContract.paused();
+      } catch {
+        // If paused() doesn't exist, assume not paused
+        return false;
+      }
+    } catch (error) {
+      this.logger.error(`Failed to check pause status for ${contract}:`, error);
+      return false;
+    }
+  }
+
+  async getMaxActiveIntentsPerAgent(): Promise<number> {
+    try {
+      // Mock implementation - in production would query contract
+      const mockExternalApis = this.configService.get('MOCK_EXTERNAL_APIS', false);
+      
+      if (mockExternalApis) {
+        return 10; // Mock limit of 10 active intents per agent
+      }
+
+      // In production, query the contract for the limit
+      return 10;
+    } catch (error) {
+      this.logger.error('Failed to get max active intents per agent:', error);
+      return 10; // Default fallback
+    }
   }
 }

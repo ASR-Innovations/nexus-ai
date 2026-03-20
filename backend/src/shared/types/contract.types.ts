@@ -195,7 +195,8 @@ export const CONTRACT_CONSTANTS = {
   MIN_STAKE: BigInt('10000000000000000000'), // 10 ether
   INITIAL_REPUTATION: 5000,
   SLASH_PERCENT: 10,
-  XCM_PRECOMPILE: '0x0000000000000000000000000000000000000a00'
+  XCM_PRECOMPILE: '0x0000000000000000000000000000000000000a00',
+  EXECUTION_BUFFER: 300 // 5 minutes in seconds
 } as const;
 
 // Supported Parachain IDs
@@ -205,3 +206,53 @@ export const PARACHAIN_IDS = {
   BIFROST: 2030,
   MOONBEAM: 2004
 } as const;
+
+// Security Error Types
+export interface SecurityError {
+  code: string;
+  message: string;
+  details: Record<string, any>;
+  retryable: boolean;
+  suggestedAction?: string;
+}
+
+// Security Error Constants
+export const SECURITY_ERRORS = {
+  INSUFFICIENT_TIME_BEFORE_DEADLINE: {
+    code: 'INSUFFICIENT_TIME_BEFORE_DEADLINE',
+    message: 'Insufficient time before deadline',
+    retryable: false
+  },
+  PROTOCOL_NOT_WHITELISTED: {
+    code: 'PROTOCOL_NOT_WHITELISTED',
+    message: 'Protocol not whitelisted',
+    retryable: false
+  },
+  SLIPPAGE_EXCEEDED: {
+    code: 'SLIPPAGE_EXCEEDED',
+    message: 'Slippage exceeded',
+    retryable: false
+  },
+  RATE_LIMIT_EXCEEDED: {
+    code: 'RATE_LIMIT_EXCEEDED',
+    message: 'Rate limit exceeded',
+    retryable: true
+  },
+  EMERGENCY_PAUSE_ACTIVE: {
+    code: 'EMERGENCY_PAUSE_ACTIVE',
+    message: 'Emergency pause is active',
+    retryable: true
+  },
+  INSUFFICIENT_REPUTATION: {
+    code: 'INSUFFICIENT_REPUTATION',
+    message: 'Insufficient reputation',
+    retryable: false
+  }
+} as const;
+
+// Slippage Protection Types
+export interface SlippageParams {
+  maxSlippageBps: number;
+  returnAmount: bigint;
+  executionAmount: bigint;
+}

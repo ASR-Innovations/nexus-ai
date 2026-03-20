@@ -2,7 +2,7 @@ import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { PortfolioService } from './portfolio.service';
 
-@Controller('api/portfolio')
+@Controller('portfolio')
 @UseGuards(ThrottlerGuard)
 export class PortfolioController {
   constructor(private readonly portfolioService: PortfolioService) {}

@@ -1,80 +1,61 @@
 import { Controller, Post, Body, UseGuards, Get, Param, Delete, UseInterceptors } from '@nestjs/common';
-import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import { SkipThrottle } from '@nestjs/throttler';
 import { WalletAuthGuard } from '../shared/guards/wallet-auth.guard';
 import { ChatService } from './chat.service';
-// import { YieldsService } from '../yields/yields.service';
-// import { StrategyService } from '../strategy/strategy.service';
 import { ChatMessageDto } from './chat.dto';
 import { DeepSeekCacheInterceptor } from '../shared/interceptors/cache.interceptor';
+import { randomUUID } from 'crypto';
 
-@Controller('api/chat')
-@UseGuards(ThrottlerGuard)
+@Controller('chat')
+@SkipThrottle() // Disable rate limiting for chat endpoints in development
 export class ChatController {
   constructor(
     private readonly chatService: ChatService,
-    // private readonly yieldsService: YieldsService,
-    // private readonly strategyService: StrategyService,
   ) {}
 
   @Post('message')
-  @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 requests per minute
   @UseInterceptors(DeepSeekCacheInterceptor)
   @UseGuards(WalletAuthGuard)
   async sendMessage(@Body() chatMessageDto: ChatMessageDto) {
+    const conversationId = chatMessageDto.conversationId || randomUUID();
+
     try {
-      // Process the message through ChatService which handles intent parsing
       const parseResult = await this.chatService.processMessage(
         chatMessageDto.message,
         chatMessageDto.userId
       );
 
-      // If parsing was successful and we have intent params, compute strategies
       if (parseResult.success && parseResult.intentParams && parseResult.confidence >= 60) {
-        // TODO: Re-enable when strategy service is fixed
-        // const strategies = await this.strategyService.computeStrategies(parseResult.intentParams);
-        // 
-        // // Generate explanations for each strategy using ChatService
-        // const strategiesWithExplanations = await Promise.all(
-        //   strategies.map(async (strategy) => {
-        //     const explanation = await this.chatService.explainStrategy(strategy);
-        //     const riskAssessment = await this.chatService.assessRisk(strategy);
-        //     
-        //     return {
-        //       ...strategy,
-        //       explanation,
-        //       riskAssessment,
-        //     };
-        //   })
-        // );
-
         return {
           success: true,
-          message: parseResult.message,
+          message: parseResult.message || `I understand you want to ${parseResult.intentParams.action} ${parseResult.intentParams.amount} ${parseResult.intentParams.asset}. Let me find the best strategies for you.`,
           intentParams: parseResult.intentParams,
-          strategies: [], // Empty for now until strategy service is fixed
+          strategies: parseResult.strategies || [],
           confidence: parseResult.confidence,
-          conversationId: parseResult.conversationId,
+          conversationId,
         };
       }
 
-      // Return clarification question if confidence is low or parsing failed
       return {
         success: parseResult.success,
+        message: parseResult.clarificationQuestion || parseResult.message || 'Could you provide more details about what you want to do?',
         confidence: parseResult.confidence,
         clarificationQuestion: parseResult.clarificationQuestion,
-        conversationId: parseResult.conversationId,
+        conversationId,
       };
     } catch (error) {
       return {
         success: false,
+        message: 'Failed to process message. Please try again.',
         error: 'Failed to process message',
         confidence: 0,
+        conversationId,
       };
     }
   }
 
   @Get('memory/:userId')
-  @Throttle({ default: { limit: 20, ttl: 60000 } }) // 20 requests per minute
+  // @Throttle({ default: { limit: 20, ttl: 60000 } }) // REMOVED: Rate limiting disabled
   async getUserMemories(@Param('userId') userId: string) {
     try {
       const memories = await this.chatService.getAllMemories(userId);
@@ -92,7 +73,7 @@ export class ChatController {
   }
 
   @Delete('memory/:memoryId')
-  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 requests per minute
+  // @Throttle({ default: { limit: 10, ttl: 60000 } }) // REMOVED: Rate limiting disabled
   @UseGuards(WalletAuthGuard)
   async deleteMemory(@Param('memoryId') memoryId: string) {
     try {
@@ -110,7 +91,7 @@ export class ChatController {
   }
 
   @Delete('cache/:userId')
-  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute
+  // @Throttle({ default: { limit: 5, ttl: 60000 } }) // REMOVED: Rate limiting disabled
   @UseGuards(WalletAuthGuard)
   async clearUserCache(@Param('userId') userId: string) {
     try {

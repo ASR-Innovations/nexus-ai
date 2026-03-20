@@ -35,6 +35,7 @@ import { ActivityMonitorService } from '../shared/services/activity-monitor.serv
   ],
   exports: [
     SecurityService,
+    SecurityMonitoringService,
     RBACService,
     EncryptionService,
     HSMService,

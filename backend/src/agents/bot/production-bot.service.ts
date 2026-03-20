@@ -218,6 +218,12 @@ export class ProductionBotService implements OnModuleInit, OnModuleDestroy {
         return;
       }
 
+      // Guard: skip if no EVM wallet configured
+      if (!this.walletManager.hasWallet('evm')) {
+        this.logger.debug('No EVM wallet configured, skipping intent monitoring');
+        return;
+      }
+
       // Get agent address
       const agentAddress = this.walletManager.getEVMAddress();
       
@@ -626,7 +632,9 @@ export class ProductionBotService implements OnModuleInit, OnModuleDestroy {
   }
 
   async getHealth(): Promise<BotHealth> {
-    const agentAddress = this.walletManager.getEVMAddress();
+    const agentAddress = this.walletManager.hasWallet('evm')
+      ? this.walletManager.getEVMAddress()
+      : '0x0000000000000000000000000000000000000000';
     const metrics = await this.monitoring.getBotMetrics(agentAddress);
     const circuitBreakers = this.circuitBreaker.getAllStats();
 
@@ -757,6 +765,10 @@ export class ProductionBotService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async checkAgentReputation(): Promise<void> {
+    if (!this.walletManager.hasWallet('evm')) {
+      this.logger.debug('No EVM wallet configured, skipping reputation check');
+      return;
+    }
     const agentAddress = this.walletManager.getEVMAddress();
     const reputation = await this.contractService.getAgentReputation(agentAddress);
     

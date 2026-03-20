@@ -1,30 +1,32 @@
 "use client";
 
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { WalletProvider } from "@/hooks/use-wallet";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ToastProvider } from "@/components/Toast";
-import { useState } from "react";
+import { AuthProvider } from "@/contexts/auth-context";
+import { PortfolioProvider } from "@/contexts/portfolio-context";
+import { ChatProvider } from "@/contexts/chat-context";
+import { ThemeProvider } from "@/contexts/theme-context";
+import { queryClient } from "@/lib/query-client";
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 60 * 1000, // 1 minute
-            refetchOnWindowFocus: false,
-          },
-        },
-      })
-  );
-
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <ToastProvider>
-          <WalletProvider>{children}</WalletProvider>
-        </ToastProvider>
+        <ThemeProvider>
+          <ToastProvider>
+            <AuthProvider>
+              <WalletProvider>
+                <PortfolioProvider>
+                  <ChatProvider>
+                    {children}
+                  </ChatProvider>
+                </PortfolioProvider>
+              </WalletProvider>
+            </AuthProvider>
+          </ToastProvider>
+        </ThemeProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );

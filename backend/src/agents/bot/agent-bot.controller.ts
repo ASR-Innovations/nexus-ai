@@ -27,7 +27,7 @@ export class RegisterBotDto {
 }
 
 export class ExecuteIntentDto {
-  intentId: number;
+  intentId!: number;
   force?: boolean;
 }
 
@@ -114,7 +114,7 @@ export class AgentBotController {
     } catch (error) {
       this.logger.error('Failed to start monitoring:', error);
       throw new HttpException(
-        error.message || 'Failed to start monitoring',
+        (error as Error).message || 'Failed to start monitoring',
         HttpStatus.BAD_REQUEST
       );
     }
@@ -567,7 +567,6 @@ export class AgentBotController {
         );
       } else if (body.chain === 'moonbeam') {
         quote = await this.realProtocolIntegration.getMoonbeamSwapQuote(
-          body.protocol,
           body.tokenIn,
           body.tokenOut,
           body.amountIn
@@ -682,11 +681,11 @@ export class AgentBotController {
     riskTolerance: 'low' | 'medium' | 'high';
   }) {
     try {
-      const opportunity = await this.realProtocolIntegration.findBestYieldOpportunity(
-        body.asset,
-        body.amount,
-        body.riskTolerance
-      );
+      const opportunity = await this.realProtocolIntegration.findBestYieldOpportunity({
+        asset: body.asset,
+        amount: body.amount,
+        riskTolerance: body.riskTolerance,
+      });
       
       if (!opportunity) {
         return {

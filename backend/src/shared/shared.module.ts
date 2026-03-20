@@ -9,6 +9,11 @@ import { CacheService } from './cache.service';
 import { DatabaseServiceImpl } from './database.service';
 import { RequestDeduplicationService } from './services/request-deduplication.service';
 import { WalletAuthGuard } from './guards/wallet-auth.guard';
+import { TimelockRepositoryImpl } from './repositories/timelock.repository';
+import { RedisService } from './redis.service';
+import { PricingService } from './pricing.service';
+import { StaticDataService } from './static-data.service';
+import { CircuitBreakerService } from './circuit-breaker.service';
 
 @Global()
 @Module({
@@ -23,6 +28,11 @@ import { WalletAuthGuard } from './guards/wallet-auth.guard';
     DatabaseServiceImpl,
     RequestDeduplicationService,
     WalletAuthGuard,
+    TimelockRepositoryImpl,
+    RedisService,
+    PricingService,
+    StaticDataService,
+    CircuitBreakerService,
   ],
   exports: [
     DatabaseProvider, 
@@ -35,6 +45,11 @@ import { WalletAuthGuard } from './guards/wallet-auth.guard';
     DatabaseServiceImpl,
     RequestDeduplicationService,
     WalletAuthGuard,
+    TimelockRepositoryImpl,
+    RedisService,
+    PricingService,
+    StaticDataService,
+    CircuitBreakerService,
   ],
 })
 export class SharedModule {}

@@ -29,7 +29,7 @@ export class EncryptionService {
   private readonly saltLength = 64;
   private readonly tagLength = 16;
 
-  private encryptionKey: Buffer;
+  private encryptionKey!: Buffer;
 
   constructor(private readonly configService: ConfigService) {
     this.initializeEncryptionKey();

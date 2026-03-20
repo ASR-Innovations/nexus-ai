@@ -3,7 +3,7 @@ import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { WalletAuthGuard } from '../shared/guards/wallet-auth.guard';
 import { ChatService } from '../chat/chat.service';
 
-@Controller('api/memory')
+@Controller('memory')
 @UseGuards(ThrottlerGuard)
 export class MemoryController {
   constructor(private readonly chatService: ChatService) {}
