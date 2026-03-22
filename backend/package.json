@@ -34,7 +34,7 @@
     "mem0ai": "^1.0.0",
     "openai": "^4.20.0",
     "pg": "^8.11.3",
-    "reflect-metadata": "^0.1.14",
+    "reflect-metadata": "^0.2.1",
     "rxjs": "^7.8.1",
     "ws": "^8.14.2",
     "zod": "^3.22.4"

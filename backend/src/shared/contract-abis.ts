@@ -316,6 +316,7 @@ export const AGENT_REGISTRY_FUNCTIONS = [
         { "internalType": "uint256", "name": "successCount", "type": "uint256" },
         { "internalType": "uint256", "name": "failCount", "type": "uint256" },
         { "internalType": "uint256", "name": "totalExecutions", "type": "uint256" },
+        { "internalType": "uint256", "name": "totalVolumeHandled", "type": "uint256" },
         { "internalType": "bool", "name": "isActive", "type": "bool" },
         { "internalType": "string", "name": "metadataURI", "type": "string" },
         { "internalType": "uint256", "name": "registeredAt", "type": "uint256" }
@@ -338,6 +339,20 @@ export const AGENT_REGISTRY_FUNCTIONS = [
     "inputs": [{ "internalType": "address", "name": "agent", "type": "address" }],
     "name": "isActiveAgent",
     "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "address", "name": "agent", "type": "address" }],
+    "name": "getAgentReputation",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "address", "name": "agent", "type": "address" }],
+    "name": "getAgentStake",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
     "stateMutability": "view",
     "type": "function"
   },

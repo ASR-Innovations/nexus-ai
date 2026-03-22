@@ -1,12 +1,12 @@
-import { IsString, IsNotEmpty, IsEthereumAddress, IsOptional, IsEnum, IsNumber, Min, Max, IsInt } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsEnum, IsNumber, Min, Max, IsInt } from 'class-validator';
 export class ChatMessageDto {
   @IsString()
   @IsNotEmpty()
   message!: string;
 
   @IsString()
-  @IsEthereumAddress()
-  userId!: string; // wallet address
+  @IsNotEmpty()
+  userId!: string; // wallet address or user identifier
 
   @IsString()
   @IsOptional()

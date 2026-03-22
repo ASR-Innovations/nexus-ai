@@ -30,8 +30,8 @@ export class ContractService {
   constructor(private configService: ConfigService) {}
 
   async onModuleInit() {
-    const mockExternalApis = this.configService.get('MOCK_EXTERNAL_APIS', false);
-    
+    const mockExternalApis = this.configService.get('MOCK_EXTERNAL_APIS', 'false') === 'true';
+
     if (mockExternalApis) {
       this.logger.log('Mocking external APIs - skipping blockchain initialization');
       return;

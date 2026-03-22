@@ -232,9 +232,9 @@ export class ChatService {
         confidence: parseResult.confidence,
         intentParams: parseResult.intentParams,
         strategies,
-        message: strategies.length > 0 
-          ? `I found ${strategies.length} strategies that match your criteria. Here are the best options for ${parseResult.intentParams?.action}ing ${parseResult.intentParams?.amount} ${parseResult.intentParams?.asset} with ${parseResult.intentParams?.riskTolerance} risk tolerance.`
-          : `I understand you want to ${parseResult.intentParams?.action} ${parseResult.intentParams?.amount} ${parseResult.intentParams?.asset} with ${parseResult.intentParams?.riskTolerance} risk tolerance, but I couldn't find any strategies that match your criteria. Try adjusting your requirements.`,
+        message: strategies.length > 0
+          ? this.buildSuccessMessage(parseResult.intentParams?.action, parseResult.intentParams?.amount, parseResult.intentParams?.asset, strategies.length)
+          : `I understand you want to ${parseResult.intentParams?.action} ${parseResult.intentParams?.amount} ${parseResult.intentParams?.asset}, but I couldn't find any options. Try adjusting your requirements.`,
         queryHash,
       };
 
@@ -305,10 +305,12 @@ Asset Mapping:
 - "PAS", "Paseo", "Paseo token" → PAS
 - "USDC", "USD Coin" → USDC
 - "ETH", "Ethereum" → ETH
+- If NO asset is mentioned at all, default to "PAS" (this is the Paseo testnet, PAS is the native token)
 
 Network Context:
 - This app runs on Polkadot Hub Testnet (Paseo). PAS is the native testnet token.
-- When users mention "PAS" treat it the same as DOT for strategy purposes.${memoryContext}`;
+- When no asset is specified, ALWAYS default to PAS, never DOT.
+- When no amount is specified, set amount: "0" and confidence: 45 so a clarification is triggered.${memoryContext}`;
 
       // 3. Call DeepSeek with function calling (with deduplication)
       const deduplicationKey = `deepseek:parse:${this.createQueryHash(message, userId, systemPrompt)}`;
@@ -763,6 +765,26 @@ Consider:
       riskTolerance,
       category: 'preferences',
     });
+  }
+
+  private buildSuccessMessage(action?: string, amount?: string, asset?: string, count?: number): string {
+    const n = count ?? 0;
+    const a = amount ?? '';
+    const tok = asset ?? '';
+    switch (action) {
+      case 'swap':
+        return `Here is the best route to swap ${a} ${tok} on Polkadot Hub.`;
+      case 'bridge':
+        return `Found ${n} bridge route${n !== 1 ? 's' : ''} to transfer ${a} ${tok} cross-chain.`;
+      case 'transfer':
+        return `Ready to transfer ${a} ${tok} on Polkadot Hub.`;
+      case 'stake':
+        return `Found ${n} staking option${n !== 1 ? 's' : ''} for ${a} ${tok}.`;
+      case 'lend':
+        return `Found ${n} lending option${n !== 1 ? 's' : ''} for ${a} ${tok}.`;
+      default:
+        return `Found ${n} yield strateg${n !== 1 ? 'ies' : 'y'} for ${a} ${tok}.`;
+    }
   }
 
   /**
