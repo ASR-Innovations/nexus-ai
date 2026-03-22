@@ -27,8 +27,11 @@ RUN npm ci --omit=dev
 # Copy built output from builder
 COPY --from=builder /app/dist ./dist
 
-# Expose port
-EXPOSE 3001
+# Bind to all interfaces (required for Railway/Docker)
+ENV HOST=0.0.0.0
+
+# Expose port (Railway overrides with its own PORT env var)
+EXPOSE 3000
 
 # Start the application
 CMD ["node", "dist/main"]
